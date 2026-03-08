@@ -1,0 +1,41 @@
+option(
+  'xwayland',
+  type: 'boolean',
+  value: true,
+  description: 'Enable XWayland support'
+)
+option(
+  'screencopy',
+  type: 'boolean',
+  value: true,
+  description: 'Enable screencopy support'
+)
+option(
+  'gammacontrol',
+  type: 'boolean',
+  value: true,
+  description: 'Enable gammacontrol support'
+)
+option(
+  'layershell',
+  type: 'boolean',
+  value: true,
+  description: 'Enable layershell support'
+)
+option(
+  'virtualinput',
+  type: 'boolean',
+  value: true,
+  description: 'Enable Virtual input support'
+)
+option(
+  'etcprefix',
+  type: 'string',
+  description: 'Alternative /etc location'
+)
+option(
+  'hikari_debug',
+  type: 'boolean',
+  value: false,
+  description: 'Enable debug build (-g -O0 -fsanitize=address)'
+)
