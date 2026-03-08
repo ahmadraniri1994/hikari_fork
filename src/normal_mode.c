@@ -14,6 +14,8 @@
 #include <hikari/server.h>
 #include <hikari/view.h>
 
+#include <hikari/compat.h>
+
 #ifndef NDEBUG
 #include <hikari/layout.h>
 #include <hikari/sheet.h>
@@ -73,7 +75,7 @@ handle_pending_action(void)
 
 #ifndef NDEBUG
 static void
-dump_debug(struct hikari_server *server)
+dump_debug(__unused struct hikari_server *server)
 {
   struct hikari_view *view;
   printf("---------------------------------------------------------------------"
@@ -182,6 +184,7 @@ modifiers_handler(struct hikari_keyboard *keyboard)
 static void
 cancel(void)
 {
+  return;
 }
 
 static void
@@ -289,13 +292,13 @@ button_handler(
     struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
 {
   if (handle_pending_action()) {
-    if (event->state == WLR_BUTTON_RELEASED && is_cursor_down()) {
+    if (event->state == WL_POINTER_BUTTON_STATE_RELEASED && is_cursor_down()) {
       stop_cursor_down_handling(event);
     }
     return;
   }
 
-  if (event->state == WLR_BUTTON_PRESSED) {
+  if (event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
     uint32_t modifiers = hikari_server.keyboard_state.modifiers;
     struct hikari_binding_group *map = &cursor->bindings[modifiers];
 

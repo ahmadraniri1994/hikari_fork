@@ -8,6 +8,8 @@
 #include <hikari/renderer.h>
 #include <hikari/view.h>
 
+#include <hikari/compat.h>
+
 #ifdef HAVE_XWAYLAND
 #include <hikari/xwayland_unmanaged_view.h>
 #include <hikari/xwayland_view.h>
@@ -403,13 +405,7 @@ render_output(struct hikari_output *output, pixman_region32_t *damage)
     return;
   }
 
-  /* Always repaint the full output to avoid artefacts from partial damage
-   * tracking across multiple buffers. */
-  int width, height;
-  wlr_output_transformed_resolution(wlr_output, &width, &height);
-  pixman_region32_union_rect(damage, damage, 0, 0, width, height);
-
-  /* Register the buffer with the damage ring for future frames. */
+  /* Extend damage with what differs in older buffers (multi-buffering). */
   wlr_damage_ring_rotate_buffer(&output->damage, state.buffer, damage);
 
   struct hikari_renderer renderer = {
@@ -442,7 +438,7 @@ layer_for_each(struct wl_list *layers,
 #endif
 
 static void
-send_frame_done(struct wlr_surface *surface, int sx, int sy, void *data)
+send_frame_done(struct wlr_surface *surface, __unused int sx, __unused int sy, void *data)
 {
   assert(surface != NULL);
 
@@ -480,16 +476,13 @@ frame_done(struct hikari_output *output)
 }
 
 void
-hikari_renderer_damage_frame_handler(struct wl_listener *listener, void *data)
+hikari_renderer_damage_frame_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_output *output =
       wl_container_of(listener, output, damage_frame);
 
   struct wlr_output *wlr_output = output->wlr_output;
   bool has_damage = pixman_region32_not_empty(&output->damage.current);
-
-  int out_width, out_height;
-  wlr_output_transformed_resolution(wlr_output, &out_width, &out_height);
 
   if (!wlr_output->needs_frame && !has_damage) {
     frame_done(output);
@@ -499,12 +492,15 @@ hikari_renderer_damage_frame_handler(struct wl_listener *listener, void *data)
   pixman_region32_t buffer_damage;
   pixman_region32_init(&buffer_damage);
 
-  if (has_damage) {
-    pixman_region32_copy(&buffer_damage, &output->damage.current);
-    pixman_region32_clear(&output->damage.current);
-  } else {
-    /* needs_frame is set but damage ring is empty (before first rotate_buffer).
-     * Damage the full output so we actually render. */
+  /* Copy current damage — do NOT clear it here; wlr_damage_ring_rotate_buffer
+   * reads ring->current and clears it internally. */
+  pixman_region32_copy(&buffer_damage, &output->damage.current);
+
+  if (!pixman_region32_not_empty(&buffer_damage)) {
+    /* needs_frame with no damage — e.g. cursor update or first frame.
+     * Force a full repaint. */
+    int out_width, out_height;
+    wlr_output_transformed_resolution(wlr_output, &out_width, &out_height);
     pixman_region32_union_rect(
         &buffer_damage, &buffer_damage, 0, 0, out_width, out_height);
   }

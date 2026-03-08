@@ -19,6 +19,8 @@
 #include <hikari/view.h>
 #include <hikari/workspace.h>
 
+#include <hikari/compat.h>
+
 static void
 modifiers_handler(struct hikari_keyboard *keyboard)
 {
@@ -71,11 +73,12 @@ key_handler(
 static void
 cancel(void)
 {
+  return;
 }
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
+    __unused struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
 {
   wlr_seat_pointer_notify_button(
       hikari_server.seat, event->time_msec, event->button, event->state);
@@ -117,7 +120,7 @@ hikari_input_grab_mode_init(struct hikari_input_grab_mode *input_grab_mode)
 }
 
 void
-hikari_input_grab_mode_enter(struct hikari_view *view)
+hikari_input_grab_mode_enter(__unused struct hikari_view *view)
 {
   hikari_server.mode = (struct hikari_mode *)&hikari_server.input_grab_mode;
 }

@@ -8,6 +8,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <hikari/compat.h>
+
 static char *input_buffer = NULL;
 
 #define INPUT_BUFFER_SIZE 1024
@@ -16,7 +18,7 @@ static int
 conversation_handler(int num_msg,
     const struct pam_message **msg,
     struct pam_response **resp,
-    void *data)
+    __unused void *data)
 {
   struct pam_response *pam_reply = calloc(num_msg, sizeof(struct pam_response));
 
@@ -69,9 +71,8 @@ check_password(const char *username)
 }
 
 int
-main(int argc, char **argv)
+main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 {
-  char input;
   bool success = false;
   struct passwd *passwd = getpwuid(getuid());
 

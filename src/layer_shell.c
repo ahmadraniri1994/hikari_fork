@@ -12,6 +12,8 @@
 #include <hikari/output.h>
 #include <hikari/server.h>
 
+#include <hikari/compat.h>
+
 static void
 map(struct hikari_layer *layer);
 
@@ -350,7 +352,7 @@ done:
 }
 
 static void
-commit_handler(struct wl_listener *listener, void *data)
+commit_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer *layer = wl_container_of(listener, layer, commit);
   struct wlr_box old_geometry = layer->geometry;
@@ -388,7 +390,7 @@ commit_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer *layer = wl_container_of(listener, layer, destroy);
 
@@ -433,7 +435,7 @@ map(struct hikari_layer *layer)
 }
 
 static void
-map_handler(struct wl_listener *listener, void *data)
+map_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer *layer = wl_container_of(listener, layer, map);
 
@@ -477,7 +479,7 @@ unmap(struct hikari_layer *layer)
 }
 
 static void
-unmap_handler(struct wl_listener *listener, void *data)
+unmap_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer *layer = wl_container_of(listener, layer, unmap);
 
@@ -550,7 +552,7 @@ calculate_geometry(struct hikari_layer *layer)
 }
 
 static void
-destroy_popup_handler(struct wl_listener *listener, void *data)
+destroy_popup_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer_popup *layer_popup =
       wl_container_of(listener, layer_popup, destroy);
@@ -565,7 +567,7 @@ destroy_popup_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-map_popup_handler(struct wl_listener *listener, void *data)
+map_popup_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer_popup *layer_popup =
       wl_container_of(listener, layer_popup, map);
@@ -578,7 +580,7 @@ map_popup_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-unmap_popup_handler(struct wl_listener *listener, void *data)
+unmap_popup_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer_popup *layer_popup =
       wl_container_of(listener, layer_popup, unmap);
@@ -591,7 +593,7 @@ unmap_popup_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-commit_popup_handler(struct wl_listener *listener, void *data)
+commit_popup_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer_popup *layer_popup =
       wl_container_of(listener, layer_popup, commit);
@@ -600,7 +602,7 @@ commit_popup_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-new_popup_popup_handler(struct wl_listener *listener, void *data)
+new_popup_popup_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer_popup *layer_popup =
       wl_container_of(listener, layer_popup, new_popup);
@@ -618,7 +620,7 @@ new_popup_popup_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-new_popup_handler(struct wl_listener *listener, void *data)
+new_popup_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_layer *layer = wl_container_of(listener, layer, new_popup);
 
@@ -672,7 +674,7 @@ focus(struct hikari_node *node)
 static void
 for_each_surface(struct hikari_node *node,
     void (*func)(struct wlr_surface *, int, int, void *),
-    void *data)
+    __unused void *data)
 {
   struct hikari_layer *layer = (struct hikari_layer *)node;
 

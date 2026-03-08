@@ -24,6 +24,8 @@
 #include <hikari/xdg_view.h>
 #include <hikari/xwayland_view.h>
 
+#include <hikari/compat.h>
+
 #define VIEW(name, link)                                                       \
   static struct hikari_view *name##_view(void)                                 \
   {                                                                            \
@@ -409,7 +411,7 @@ clear_focus(struct hikari_view *view)
 
 void
 hikari_view_init(
-    struct hikari_view *view, bool child, struct hikari_workspace *workspace)
+    struct hikari_view *view, bool child, __unused struct hikari_workspace *workspace)
 {
 #if !defined(NDEBUG)
   printf("VIEW INIT %p\n", view);
@@ -1069,7 +1071,7 @@ commit_tile(struct hikari_view *view, struct hikari_operation *operation)
 
 static void
 queue_tile(struct hikari_view *view,
-    struct hikari_layout *layout,
+    __unused struct hikari_layout *layout,
     struct hikari_tile *tile,
     bool center)
 {
@@ -1579,7 +1581,7 @@ hikari_view_exchange(struct hikari_view *from, struct hikari_view *to)
 }
 
 static void
-destroy_subsurface_handler(struct wl_listener *listener, void *data)
+destroy_subsurface_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_view_subsurface *view_subsurface =
       wl_container_of(listener, view_subsurface, destroy);
@@ -1646,7 +1648,7 @@ damage_single_surface(struct wlr_surface *surface, int sx, int sy, void *data)
 }
 
 static void
-commit_child_handler(struct wl_listener *listener, void *data)
+commit_child_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_view_child *view_child =
       wl_container_of(listener, view_child, commit);

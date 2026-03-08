@@ -21,6 +21,8 @@
 #include <hikari/utf8.h>
 #include <hikari/view.h>
 
+#include <hikari/compat.h>
+
 #define BUFFER_SIZE 1024
 
 static char input_buffer[BUFFER_SIZE];
@@ -219,6 +221,7 @@ key_handler(
             disable_outputs();
             return;
           }
+          /* fallthrough */
         default:
           codepoint = hikari_keyboard_get_codepoint(keyboard, keycode);
 
@@ -236,14 +239,16 @@ key_handler(
 }
 
 static void
-modifiers_handler(struct hikari_keyboard *keyboard)
+modifiers_handler(__unused struct hikari_keyboard *keyboard)
 {
+  return;
 }
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
+    __unused struct hikari_cursor *cursor, __unused struct wlr_pointer_button_event *event)
 {
+  return;
 }
 
 static void
@@ -290,12 +295,13 @@ cancel(void)
 }
 
 static void
-cursor_move(uint32_t time_msec)
+cursor_move(__unused uint32_t time_msec)
 {
+  return;
 }
 
 static int
-disable_outputs_handler(void *data)
+disable_outputs_handler(__unused void *data)
 {
   assert(hikari_server_in_lock_mode());
 
@@ -321,7 +327,7 @@ hikari_lock_mode_init(struct hikari_lock_mode *lock_mode)
 }
 
 void
-hikari_lock_mode_fini(struct hikari_lock_mode *lock_mode)
+hikari_lock_mode_fini(__unused struct hikari_lock_mode *lock_mode)
 {
   munlock(input_buffer, BUFFER_SIZE);
 }

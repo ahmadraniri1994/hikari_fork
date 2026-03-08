@@ -12,6 +12,8 @@
 #include <hikari/output.h>
 #include <hikari/server.h>
 
+#include <hikari/compat.h>
+
 static void
 motion_absolute_handler(struct wl_listener *listener, void *data);
 
@@ -226,8 +228,10 @@ motion_absolute_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-frame_handler(struct wl_listener *listener, void *data)
+frame_handler(__unused struct wl_listener *listener, __unused void *data)
 {
+  (void)listener;
+  (void)data;
   assert(!hikari_server_in_lock_mode());
 
   wlr_seat_pointer_notify_frame(hikari_server.seat);
@@ -248,6 +252,15 @@ motion_handler(struct wl_listener *listener, void *data)
       event->delta_y);
 
   hikari_server.mode->cursor_move(event->time_msec);
+
+  /* If the cursor is rendered in software, schedule a frame so the new
+   * cursor position becomes visible. */
+  struct hikari_output *output;
+  wl_list_for_each (output, &hikari_server.outputs, server_outputs) {
+    if (output->enabled) {
+      wlr_output_schedule_frame(output->wlr_output);
+    }
+  }
 }
 
 static void
@@ -264,6 +277,7 @@ button_handler(struct wl_listener *listener, void *data)
 static void
 axis_handler(struct wl_listener *listener, void *data)
 {
+  (void)listener;
   assert(!hikari_server_in_lock_mode());
 
   struct wlr_pointer_axis_event *event = data;
@@ -318,6 +332,7 @@ request_set_cursor_handler(struct wl_listener *listener, void *data)
 static void
 surface_destroy_handler(struct wl_listener *listener, void *data)
 {
+  (void)data;
   struct hikari_cursor *cursor =
       wl_container_of(listener, cursor, surface_destroy);
 

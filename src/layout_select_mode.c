@@ -16,6 +16,8 @@
 #include <hikari/view.h>
 #include <hikari/workspace.h>
 
+#include <hikari/compat.h>
+
 static struct hikari_split *
 lookup_layout(struct hikari_configuration *configuration,
     struct wlr_keyboard_key_event *event,
@@ -65,13 +67,17 @@ key_handler(
 }
 
 static void
-modifiers_handler(struct hikari_keyboard *keyboard)
-{}
+modifiers_handler(__unused struct hikari_keyboard *keyboard)
+{
+  return;
+}
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
-{}
+    __unused struct hikari_cursor *cursor, __unused struct wlr_pointer_button_event *event)
+{
+  return;
+}
 
 static void
 cancel(void)
@@ -85,8 +91,10 @@ cancel(void)
 }
 
 static void
-cursor_move(uint32_t time_msec)
-{}
+cursor_move(__unused uint32_t time_msec)
+{
+  return;
+}
 
 void
 hikari_layout_select_mode_init(

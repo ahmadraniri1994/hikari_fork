@@ -1,6 +1,7 @@
 #include <hikari/decoration.h>
 
 #include <hikari/memory.h>
+#include <hikari/compat.h>
 
 #include <wlr/types/wlr_xdg_shell.h>
 
@@ -12,7 +13,7 @@ set_mode(struct hikari_decoration *decoration)
 }
 
 static void
-request_mode_handler(struct wl_listener *listener, void *data)
+request_mode_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_decoration *decoration =
       wl_container_of(listener, decoration, request_mode);
@@ -27,7 +28,7 @@ request_mode_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-surface_commit_handler(struct wl_listener *listener, void *data)
+surface_commit_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_decoration *decoration =
       wl_container_of(listener, decoration, surface_configure);
@@ -47,7 +48,7 @@ surface_commit_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_decoration *decoration =
       wl_container_of(listener, decoration, destroy);

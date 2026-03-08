@@ -11,6 +11,8 @@
 #include <hikari/renderer.h>
 #include <hikari/view.h>
 
+#include <hikari/compat.h>
+
 static struct hikari_mark_assign_mode *
 get_mode(void)
 {
@@ -128,6 +130,7 @@ handle_keysym(
         select_mark(keyboard, keycode);
         break;
       }
+      /* fallthrough */
     case XKB_KEY_Escape:
       hikari_server_enter_normal_mode(NULL);
       break;
@@ -167,8 +170,10 @@ key_handler(
 }
 
 static void
-modifiers_handler(struct hikari_keyboard *keyboard)
-{}
+modifiers_handler(__unused struct hikari_keyboard *keyboard)
+{
+  return;
+}
 
 static void
 cancel(void)
@@ -201,12 +206,16 @@ cancel(void)
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
-{}
+    __unused struct hikari_cursor *cursor, __unused struct wlr_pointer_button_event *event)
+{
+  return;
+}
 
 static void
-cursor_move(uint32_t time_msec)
-{}
+cursor_move(__unused uint32_t time_msec)
+{
+  return;
+}
 
 void
 hikari_mark_assign_mode_init(struct hikari_mark_assign_mode *mark_assign_mode)

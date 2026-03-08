@@ -12,6 +12,8 @@
 #include <hikari/view.h>
 #include <hikari/workspace.h>
 
+#include <hikari/compat.h>
+
 static struct hikari_sheet_assign_mode *
 get_mode(void)
 {
@@ -82,7 +84,7 @@ update_state(struct hikari_workspace *workspace, struct hikari_sheet *sheet)
 
 static void
 handle_keysym(
-    struct hikari_keyboard *keyboard, uint32_t keycode, xkb_keysym_t sym)
+    __unused struct hikari_keyboard *keyboard, __unused uint32_t keycode, xkb_keysym_t sym)
 {
   struct hikari_sheet_assign_mode *mode = get_mode();
   struct hikari_workspace *workspace = hikari_server.workspace;
@@ -144,6 +146,7 @@ handle_keysym(
       if (!hikari_keyboard_check_modifier(keyboard, WLR_MODIFIER_CTRL)) {
         goto done;
       }
+      /* fallthrough */
     case XKB_KEY_Escape:
       hikari_server_enter_normal_mode(workspace);
       goto done;
@@ -173,8 +176,10 @@ key_handler(
 }
 
 static void
-modifiers_handler(struct hikari_keyboard *keyboard)
-{}
+modifiers_handler(__unused struct hikari_keyboard *keyboard)
+{
+  return;
+}
 
 static void
 cancel(void)
@@ -199,12 +204,16 @@ cancel(void)
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
-{}
+    __unused struct hikari_cursor *cursor, __unused struct wlr_pointer_button_event *event)
+{
+  return;
+}
 
 static void
-cursor_move(uint32_t time_msec)
-{}
+cursor_move(__unused uint32_t time_msec)
+{
+  return;
+}
 
 void
 hikari_sheet_assign_mode_init(

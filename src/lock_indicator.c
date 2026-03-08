@@ -4,12 +4,13 @@
 
 #include <wlr/backend.h>
 #include <wlr/render/wlr_renderer.h>
-#include <wlr/types/wlr_matrix.h>
 
 #include <hikari/configuration.h>
 #include <hikari/geometry.h>
 #include <hikari/output.h>
 #include <hikari/server.h>
+
+#include <hikari/compat.h>
 
 #define HIKARI_PI 3.14159265358979323846
 
@@ -168,7 +169,7 @@ get_geometry(struct hikari_output *output, struct wlr_box *geometry)
 }
 
 void
-hikari_lock_indicator_damage(struct hikari_lock_indicator *lock_indicator)
+hikari_lock_indicator_damage(__unused struct hikari_lock_indicator *lock_indicator)
 {
   assert(lock_indicator != NULL);
 

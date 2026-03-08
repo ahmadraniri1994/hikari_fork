@@ -7,6 +7,9 @@
 #include <hikari/memory.h>
 #include <hikari/renderer.h>
 #include <hikari/server.h>
+
+#include <hikari/compat.h>
+
 #ifdef HAVE_XWAYLAND
 #include <hikari/view.h>
 #endif
@@ -109,7 +112,12 @@ hikari_output_damage_whole(struct hikari_output *output)
   assert(output != NULL);
   assert(output->wlr_output != NULL);
 
-  wlr_damage_ring_add_whole(&output->damage);
+  /* wlr_damage_ring_add_whole only works after rotate_buffer has been called.
+   * Also directly union the full output into current as a reliable fallback. */
+  int width, height;
+  wlr_output_transformed_resolution(output->wlr_output, &width, &height);
+  pixman_region32_union_rect(
+      &output->damage.current, &output->damage.current, 0, 0, width, height);
   wlr_output_schedule_frame(output->wlr_output);
 }
 
@@ -203,11 +211,17 @@ request_state_handler(struct wl_listener *listener, void *data)
       wl_container_of(listener, output, request_state);
   const struct wlr_output_event_request_state *event = data;
 
+  /* Commit the requested state (e.g. mode change after VT switch or resize).
+   * Then re-damage the whole output so the next frame fully repaints. */
   wlr_output_commit_state(output->wlr_output, event->state);
+  wlr_damage_ring_add_whole(&output->damage);
+  if (output->enabled) {
+    wlr_output_schedule_frame(output->wlr_output);
+  }
 }
 
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_output *output = wl_container_of(listener, output, destroy);
 

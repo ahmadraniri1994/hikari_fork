@@ -37,6 +37,8 @@
 #include <hikari/view_config.h>
 #include <hikari/workspace.h>
 
+#include <hikari/compat.h>
+
 extern char **environ;
 
 struct hikari_configuration *hikari_configuration = NULL;
@@ -705,7 +707,7 @@ parse_mouse_button(const char *str, uint32_t *keycode)
 }
 
 static bool
-parse_action(const char *action_name,
+parse_action(__unused const char *action_name,
     const ucl_object_t *action_obj,
     const char **command)
 {

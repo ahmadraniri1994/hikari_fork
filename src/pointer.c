@@ -6,8 +6,10 @@
 #include <hikari/pointer_config.h>
 #include <hikari/server.h>
 
+#include <hikari/compat.h>
+
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_pointer *pointer = wl_container_of(listener, pointer, destroy);
 

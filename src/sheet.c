@@ -10,6 +10,8 @@
 #include <hikari/split.h>
 #include <hikari/view.h>
 
+#include <hikari/compat.h>
+
 void
 hikari_sheet_init(
     struct hikari_sheet *sheet, int nr, struct hikari_workspace *workspace)
@@ -91,7 +93,7 @@ tileable_views(struct hikari_view *view)
 static struct hikari_view *
 single_layout(struct wlr_box *frame,
     struct hikari_view *first,
-    int nr_of_views,
+    __unused int nr_of_views,
     bool *center)
 {
   hikari_view_tile(first, frame, *center);
@@ -100,11 +102,14 @@ single_layout(struct wlr_box *frame,
 }
 
 static struct hikari_view *
-empty_layout(struct wlr_box *frame,
+empty_layout(__unused struct wlr_box *frame,
     struct hikari_view *first,
-    int nr_of_views,
-    bool *center)
+    __unused int nr_of_views,
+    __unused bool *center)
 {
+  (void)frame;
+  (void)nr_of_views;
+  (void)center;
   return first;
 }
 
@@ -260,6 +265,7 @@ SPLIT_LAYOUT(stack, y, x, height, width)
       int max,                                                                 \
       bool *center)                                                            \
   {                                                                            \
+    (void)sheet;                                                               \
     int nr_of_views = tileable_views(first);                                   \
     if (nr_of_views > max) {                                                   \
       nr_of_views = max;                                                       \

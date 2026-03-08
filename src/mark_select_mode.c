@@ -10,11 +10,14 @@
 #include <hikari/server.h>
 #include <hikari/workspace.h>
 
+#include <hikari/compat.h>
+
 static void
 mark_select(struct hikari_workspace *workspace,
     struct wlr_keyboard_key_event *event,
     struct hikari_keyboard *keyboard)
 {
+  (void)workspace;
   uint32_t keycode = event->keycode + 8;
   uint32_t codepoint = hikari_keyboard_get_codepoint(keyboard, keycode);
 
@@ -43,21 +46,29 @@ key_handler(
 }
 
 static void
-modifiers_handler(struct hikari_keyboard *keyboard)
-{}
+modifiers_handler(__unused struct hikari_keyboard *keyboard)
+{
+  return;
+}
 
 static void
 cancel(void)
-{}
+{
+  return;
+}
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
-{}
+    __unused struct hikari_cursor *cursor, __unused struct wlr_pointer_button_event *event)
+{
+  return;
+}
 
 static void
-cursor_move(uint32_t time_msec)
-{}
+cursor_move(__unused uint32_t time_msec)
+{
+  return;
+}
 
 void
 hikari_mark_select_mode_init(struct hikari_mark_select_mode *mark_select_mode)

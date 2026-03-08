@@ -193,7 +193,7 @@ wlr-layer-shell-unstable-v1-protocol.h:
 	wayland-scanner server-header protocol/wlr-layer-shell-unstable-v1.xml ${.TARGET}
 
 hikari-unlocker: hikari_unlocker.c
-	${CC} ${CFLAGS_EXTRA} ${LDFLAGS_EXTRA} -o hikari-unlocker hikari_unlocker.c -lpam
+	${CC} -Iinclude ${CFLAGS_EXTRA} ${LDFLAGS_EXTRA} -o hikari-unlocker hikari_unlocker.c -lpam
 
 clean-doc:
 	@test -e _darcs && echo "cleaning manpage" ||:

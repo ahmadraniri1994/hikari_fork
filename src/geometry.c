@@ -1,6 +1,7 @@
 #include <hikari/geometry.h>
 
 #include <hikari/configuration.h>
+#include <hikari/compat.h>
 
 #define SPLIT(n, x, y, width, height)                                          \
   void hikari_geometry_split_##n(struct wlr_box *src,                          \
@@ -195,7 +196,7 @@ hikari_geometry_position_center_right(
 
 void
 hikari_geometry_position_top_left(
-    struct wlr_box *geometry, struct wlr_box *usable_area, int *x, int *y)
+    __unused struct wlr_box *geometry, struct wlr_box *usable_area, int *x, int *y)
 {
   *x = usable_area->x;
   *y = usable_area->y;

@@ -17,6 +17,8 @@
 #include <hikari/view.h>
 #include <hikari/workspace.h>
 
+#include <hikari/compat.h>
+
 static uint32_t
 resize(struct hikari_view *view, int width, int height)
 {
@@ -67,7 +69,7 @@ move(struct hikari_view *view, int x, int y)
 }
 
 static void
-commit_handler(struct wl_listener *listener, void *data)
+commit_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, commit);
@@ -124,7 +126,7 @@ commit_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-set_title_handler(struct wl_listener *listener, void *data)
+set_title_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, set_title);
@@ -147,7 +149,7 @@ get_class(struct wlr_xwayland_surface *surface)
 }
 
 static void
-first_map(struct hikari_xwayland_view *xwayland_view, bool *focus)
+first_map(struct hikari_xwayland_view *xwayland_view, __unused bool *focus)
 {
   struct hikari_view *view = (struct hikari_view *)xwayland_view;
   struct wlr_xwayland_surface *xwayland_surface = xwayland_view->surface;
@@ -177,7 +179,7 @@ first_map(struct hikari_xwayland_view *xwayland_view, bool *focus)
 }
 
 static void
-map(struct hikari_view *view, bool focus)
+map(struct hikari_view *view, __unused bool focus)
 {
 #if !defined(NDEBUG)
   printf("XWAYLAND MAP %p\n", view);
@@ -194,7 +196,7 @@ map(struct hikari_view *view, bool focus)
 }
 
 static void
-map_handler(struct wl_listener *listener, void *data)
+map_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, map);
@@ -225,7 +227,7 @@ unmap(struct hikari_view *view)
 }
 
 static void
-unmap_handler(struct wl_listener *listener, void *data)
+unmap_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, unmap);
@@ -234,7 +236,7 @@ unmap_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, destroy);
@@ -261,7 +263,7 @@ destroy_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-request_configure_handler(struct wl_listener *listener, void *data)
+request_configure_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, request_configure);
@@ -342,7 +344,7 @@ focus(struct hikari_node *node)
 static void
 for_each_surface(struct hikari_node *node,
     void (*func)(struct wlr_surface *, int, int, void *),
-    void *data)
+    __unused void *data)
 {
   struct hikari_view *view = (struct hikari_view *)node;
   struct wlr_surface *surface = view->surface;
@@ -383,7 +385,7 @@ constraints(struct hikari_view *view,
 }
 
 static void
-xwayland_view_associate_handler(struct wl_listener *listener, void *data)
+xwayland_view_associate_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, associate);
@@ -395,7 +397,7 @@ xwayland_view_associate_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-xwayland_view_dissociate_handler(struct wl_listener *listener, void *data)
+xwayland_view_dissociate_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, dissociate);

@@ -5,6 +5,8 @@
 #include <hikari/server.h>
 #include <hikari/switch_config.h>
 
+#include <hikari/compat.h>
+
 static void
 execute_action(void (*action)(void *arg), void *arg)
 {
@@ -20,7 +22,7 @@ execute_action(void (*action)(void *arg), void *arg)
 }
 
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_switch *swtch = wl_container_of(listener, swtch, destroy);
 
@@ -28,7 +30,7 @@ destroy_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-toggle_handler(struct wl_listener *listener, void *data)
+toggle_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_switch *swtch = wl_container_of(listener, swtch, toggle);
 

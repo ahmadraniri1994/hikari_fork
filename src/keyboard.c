@@ -11,6 +11,8 @@
 #include <hikari/mode.h>
 #include <hikari/server.h>
 
+#include <hikari/compat.h>
+
 static void
 update_mod_state(struct hikari_keyboard *keyboard)
 {
@@ -36,7 +38,7 @@ key_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-modifiers_handler(struct wl_listener *listener, void *data)
+modifiers_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_keyboard *keyboard =
       wl_container_of(listener, keyboard, modifiers);
@@ -47,7 +49,7 @@ modifiers_handler(struct wl_listener *listener, void *data)
 }
 
 static void
-destroy_handler(struct wl_listener *listener, void *data)
+destroy_handler(struct wl_listener *listener, __unused void *data)
 {
   struct hikari_keyboard *keyboard =
       wl_container_of(listener, keyboard, destroy);
@@ -66,7 +68,7 @@ struct keycode_matcher_state {
 };
 
 static void
-match_keycode(struct xkb_keymap *keymap, xkb_keycode_t key, void *data)
+match_keycode(__unused struct xkb_keymap *keymap, xkb_keycode_t key, void *data)
 {
   struct keycode_matcher_state *matcher_state = data;
   xkb_keysym_t keysym = xkb_state_key_get_one_sym(matcher_state->state, key);

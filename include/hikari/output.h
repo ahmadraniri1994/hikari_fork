@@ -84,7 +84,12 @@ hikari_output_add_damage(struct hikari_output *output, struct wlr_box *region)
   assert(region != NULL);
 
   if (output->enabled) {
-    wlr_damage_ring_add_box(&output->damage, region);
+    pixman_region32_union_rect(&output->damage.current,
+        &output->damage.current,
+        region->x,
+        region->y,
+        region->width,
+        region->height);
     wlr_output_schedule_frame(output->wlr_output);
   }
 }
@@ -110,7 +115,8 @@ hikari_output_add_effective_surface_damage(
   wlr_surface_get_effective_damage(surface, &damage);
   pixman_region32_translate(&damage, x, y);
 
-  wlr_damage_ring_add(&output->damage, &damage);
+  pixman_region32_union(
+      &output->damage.current, &output->damage.current, &damage);
   wlr_output_schedule_frame(output->wlr_output);
   pixman_region32_fini(&damage);
 }
