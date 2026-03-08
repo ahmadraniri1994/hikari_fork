@@ -1,5 +1,8 @@
 # Hikari - Wayland Compositor
 
+**NOTE: On Github, this repository is archived, but is mirrored from the
+official repo on Codeberg:  https://codeberg.org/thomasadam/hikari**
+
 ![Screenshot](https://acmelabs.space/~raichoo/hikari.png)
 
 ## Description
