@@ -22,8 +22,8 @@
 static void
 modifiers_handler(struct hikari_keyboard *keyboard)
 {
-  wlr_seat_keyboard_notify_modifiers(
-      hikari_server.seat, &keyboard->device->keyboard->modifiers);
+  struct wlr_keyboard *kbd = wlr_keyboard_from_input_device(keyboard->device);
+  wlr_seat_keyboard_notify_modifiers(hikari_server.seat, &kbd->modifiers);
 }
 
 static bool
@@ -47,7 +47,7 @@ handle_input(struct hikari_binding_group *map, uint32_t code)
 
 static void
 key_handler(
-    struct hikari_keyboard *keyboard, struct wlr_event_keyboard_key *event)
+    struct hikari_keyboard *keyboard, struct wlr_keyboard_key_event *event)
 {
   struct hikari_workspace *workspace = hikari_server.workspace;
   if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
@@ -62,18 +62,20 @@ key_handler(
     }
   }
 
-  wlr_seat_set_keyboard(hikari_server.seat, keyboard->device);
+  struct wlr_keyboard *kbd2 = wlr_keyboard_from_input_device(keyboard->device);
+  wlr_seat_set_keyboard(hikari_server.seat, kbd2);
   wlr_seat_keyboard_notify_key(
       hikari_server.seat, event->time_msec, event->keycode, event->state);
 }
 
 static void
 cancel(void)
-{}
+{
+}
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_event_pointer_button *event)
+    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
 {
   wlr_seat_pointer_notify_button(
       hikari_server.seat, event->time_msec, event->button, event->state);

@@ -51,15 +51,16 @@ static inline uint32_t
 hikari_keyboard_get_codepoint(
     struct hikari_keyboard *keyboard, uint32_t keycode)
 {
-  return xkb_state_key_get_utf32(
-      keyboard->device->keyboard->xkb_state, keycode);
+  struct wlr_keyboard *kbd = wlr_keyboard_from_input_device(keyboard->device);
+  return xkb_state_key_get_utf32(kbd->xkb_state, keycode);
 }
 
 static inline bool
 hikari_keyboard_check_modifier(
     struct hikari_keyboard *keyboard, uint32_t modifier)
 {
-  uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->device->keyboard);
+  struct wlr_keyboard *kbd = wlr_keyboard_from_input_device(keyboard->device);
+  uint32_t modifiers = wlr_keyboard_get_modifiers(kbd);
 
   return modifiers == modifier;
 }

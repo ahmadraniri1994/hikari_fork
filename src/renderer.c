@@ -14,30 +14,15 @@
 #endif
 
 #include <wlr/backend.h>
+#include <wlr/render/pass.h>
 #include <wlr/render/wlr_renderer.h>
-#include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_output_damage.h>
 #include <wlr/util/region.h>
+#include <wlr/util/transform.h>
 
 #ifdef HAVE_XWAYLAND
 #include <wlr/xwayland.h>
 #endif
-
-static inline void
-renderer_scissor(struct wlr_output *wlr_output,
-    struct wlr_renderer *renderer,
-    pixman_box32_t *rect)
-{
-  assert(wlr_output != NULL);
-
-  struct wlr_box box = { .x = rect->x1,
-    .y = rect->y1,
-    .width = rect->x2 - rect->x1,
-    .height = rect->y2 - rect->y1 };
-
-  wlr_renderer_scissor(renderer, &box);
-}
 
 static inline void
 rect_render(float color[static 4],
@@ -55,20 +40,15 @@ rect_render(float color[static 4],
     goto buffer_damage_finish;
   }
 
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
-  struct wlr_output *wlr_output = renderer->wlr_output;
-  assert(renderer);
-
-  float matrix[9];
-  wlr_matrix_project_box(
-      matrix, box, WL_OUTPUT_TRANSFORM_NORMAL, 0, wlr_output->transform_matrix);
-
-  int nrects;
-  pixman_box32_t *rects = pixman_region32_rectangles(&damage, &nrects);
-  for (int i = 0; i < nrects; i++) {
-    renderer_scissor(wlr_output, wlr_renderer, &rects[i]);
-    wlr_render_quad_with_matrix(wlr_renderer, color, matrix);
-  }
+  struct wlr_render_color render_color = {
+    .r = color[0], .g = color[1], .b = color[2], .a = color[3]
+  };
+  struct wlr_render_rect_options opts = {
+    .box = *box,
+    .color = render_color,
+    .clip = &damage,
+  };
+  wlr_render_pass_add_rect(renderer->render_pass, &opts);
 
 buffer_damage_finish:
   pixman_region32_fini(&damage);
@@ -112,26 +92,10 @@ render_border(struct hikari_border *border, struct hikari_renderer *renderer)
       goto buffer_damage_finish;
   }
 
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
-  struct wlr_output *wlr_output = renderer->wlr_output;
-  assert(renderer);
-
-  float matrix[9];
-  wlr_matrix_project_box(matrix,
-      geometry,
-      WL_OUTPUT_TRANSFORM_NORMAL,
-      0,
-      wlr_output->transform_matrix);
-
-  int nrects;
-  pixman_box32_t *rects = pixman_region32_rectangles(&damage, &nrects);
-  for (int i = 0; i < nrects; i++) {
-    renderer_scissor(wlr_output, wlr_renderer, &rects[i]);
-    rect_render(color, &border->top, renderer);
-    rect_render(color, &border->bottom, renderer);
-    rect_render(color, &border->left, renderer);
-    rect_render(color, &border->right, renderer);
-  }
+  rect_render(color, &border->top, renderer);
+  rect_render(color, &border->bottom, renderer);
+  rect_render(color, &border->left, renderer);
+  rect_render(color, &border->right, renderer);
 
 buffer_damage_finish:
   pixman_region32_fini(&damage);
@@ -146,19 +110,22 @@ render_indicator_bar(struct hikari_indicator_bar *indicator_bar,
   }
 
   struct wlr_box *geometry = renderer->geometry;
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
-  struct wlr_output *wlr_output = renderer->wlr_output;
-
-  float matrix[9];
 
   geometry->width = indicator_bar->width;
   geometry->height = hikari_configuration->font.height;
 
-  wlr_renderer_scissor(wlr_renderer, geometry);
-  wlr_matrix_project_box(matrix, geometry, 0, 0, wlr_output->transform_matrix);
+  pixman_region32_t clip;
+  pixman_region32_init_rect(
+      &clip, geometry->x, geometry->y, geometry->width, geometry->height);
 
-  wlr_render_texture_with_matrix(
-      wlr_renderer, indicator_bar->texture, matrix, 1);
+  struct wlr_render_texture_options opts = {
+    .texture = indicator_bar->texture,
+    .dst_box = *geometry,
+    .clip = &clip,
+  };
+  wlr_render_pass_add_texture(renderer->render_pass, &opts);
+
+  pixman_region32_fini(&clip);
 }
 
 static inline void
@@ -211,47 +178,10 @@ render_indicator_frame(struct hikari_indicator_frame *indicator_frame,
     goto buffer_damage_finish;
   }
 
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
-  struct wlr_output *wlr_output = renderer->wlr_output;
-
-  float top_matrix[9];
-  float bottom_matrix[9];
-  float left_matrix[9];
-  float right_matrix[9];
-
-  wlr_matrix_project_box(top_matrix,
-      &indicator_frame->top,
-      WL_OUTPUT_TRANSFORM_NORMAL,
-      0,
-      wlr_output->transform_matrix);
-
-  wlr_matrix_project_box(bottom_matrix,
-      &indicator_frame->bottom,
-      WL_OUTPUT_TRANSFORM_NORMAL,
-      0,
-      wlr_output->transform_matrix);
-
-  wlr_matrix_project_box(left_matrix,
-      &indicator_frame->left,
-      WL_OUTPUT_TRANSFORM_NORMAL,
-      0,
-      wlr_output->transform_matrix);
-
-  wlr_matrix_project_box(right_matrix,
-      &indicator_frame->right,
-      WL_OUTPUT_TRANSFORM_NORMAL,
-      0,
-      wlr_output->transform_matrix);
-
-  int nrects;
-  pixman_box32_t *rects = pixman_region32_rectangles(&damage, &nrects);
-  for (int i = 0; i < nrects; i++) {
-    renderer_scissor(wlr_output, wlr_renderer, &rects[i]);
-    wlr_render_quad_with_matrix(wlr_renderer, color, top_matrix);
-    wlr_render_quad_with_matrix(wlr_renderer, color, bottom_matrix);
-    wlr_render_quad_with_matrix(wlr_renderer, color, left_matrix);
-    wlr_render_quad_with_matrix(wlr_renderer, color, right_matrix);
-  }
+  rect_render(color, &indicator_frame->top, renderer);
+  rect_render(color, &indicator_frame->bottom, renderer);
+  rect_render(color, &indicator_frame->left, renderer);
+  rect_render(color, &indicator_frame->right, renderer);
 
 buffer_damage_finish:
   pixman_region32_fini(&damage);
@@ -261,61 +191,42 @@ static inline void
 clear_output(struct hikari_renderer *renderer)
 {
   float *clear_color = hikari_configuration->clear;
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
   struct wlr_output *wlr_output = renderer->wlr_output;
   pixman_region32_t *damage = renderer->damage;
-
-#ifndef NDEBUG
-  if (hikari_server.track_damage) {
-    float damage_color[4];
-    hikari_color_convert(damage_color, 0x000000);
-    wlr_renderer_clear(wlr_renderer, damage_color);
-  }
-#endif
 
   int nrects;
   pixman_box32_t *rects = pixman_region32_rectangles(damage, &nrects);
   for (int i = 0; i < nrects; ++i) {
-    renderer_scissor(wlr_output, wlr_renderer, &rects[i]);
-    wlr_renderer_clear(wlr_renderer, clear_color);
+    pixman_box32_t *r = &rects[i];
+    struct wlr_box box = {
+      .x = r->x1, .y = r->y1, .width = r->x2 - r->x1, .height = r->y2 - r->y1
+    };
+    (void)wlr_output;
+
+    pixman_region32_t clip;
+    pixman_region32_init_rect(&clip, box.x, box.y, box.width, box.height);
+
+    struct wlr_render_color render_color = { .r = clear_color[0],
+      .g = clear_color[1],
+      .b = clear_color[2],
+      .a = clear_color[3] };
+    struct wlr_render_rect_options opts = {
+      .box = box,
+      .color = render_color,
+      .clip = &clip,
+    };
+    wlr_render_pass_add_rect(renderer->render_pass, &opts);
+    pixman_region32_fini(&clip);
   }
 }
 
 static inline void
-renderer_end(struct hikari_output *output, struct hikari_renderer *renderer)
-{
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
-  struct wlr_output *wlr_output = renderer->wlr_output;
-
-  wlr_renderer_scissor(wlr_renderer, NULL);
-  wlr_output_render_software_cursors(wlr_output, NULL);
-  wlr_renderer_end(wlr_renderer);
-
-  int width, height;
-  wlr_output_transformed_resolution(wlr_output, &width, &height);
-
-  pixman_region32_t frame_damage;
-  pixman_region32_init(&frame_damage);
-
-  enum wl_output_transform transform =
-      wlr_output_transform_invert(wlr_output->transform);
-  wlr_region_transform(
-      &frame_damage, &output->damage->current, transform, width, height);
-
-  wlr_output_set_damage(wlr_output, &frame_damage);
-  pixman_region32_fini(&frame_damage);
-
-  wlr_output_commit(wlr_output);
-}
-
-static inline void
 render_texture(struct wlr_texture *texture,
-    struct wlr_output *output,
     pixman_region32_t *damage,
-    struct wlr_renderer *renderer,
-    const float matrix[static 9],
+    struct wlr_render_pass *render_pass,
     struct wlr_box *box,
-    float alpha)
+    float alpha,
+    enum wl_output_transform transform)
 {
   pixman_region32_t local_damage;
   pixman_region32_init(&local_damage);
@@ -329,12 +240,14 @@ render_texture(struct wlr_texture *texture,
     goto damage_finish;
   }
 
-  int nrects;
-  pixman_box32_t *rects = pixman_region32_rectangles(&local_damage, &nrects);
-  for (int i = 0; i < nrects; ++i) {
-    renderer_scissor(output, renderer, &rects[i]);
-    wlr_render_texture_with_matrix(renderer, texture, matrix, alpha);
-  }
+  struct wlr_render_texture_options opts = {
+    .texture = texture,
+    .dst_box = *box,
+    .alpha = &alpha,
+    .clip = &local_damage,
+    .transform = transform,
+  };
+  wlr_render_pass_add_texture(render_pass, &opts);
 
 damage_finish:
   pixman_region32_fini(&local_damage);
@@ -354,7 +267,6 @@ render_surface(struct wlr_surface *surface, int sx, int sy, void *data)
   struct hikari_renderer *renderer = data;
   struct wlr_box *geometry = renderer->geometry;
   struct wlr_output *wlr_output = renderer->wlr_output;
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
 
   double ox = geometry->x + sx;
   double oy = geometry->y + sy;
@@ -364,15 +276,11 @@ render_surface(struct wlr_surface *surface, int sx, int sy, void *data)
     .width = surface->current.width * wlr_output->scale,
     .height = surface->current.height * wlr_output->scale };
 
-  float matrix[9];
   enum wl_output_transform transform =
       wlr_output_transform_invert(surface->current.transform);
 
-  wlr_matrix_project_box(
-      matrix, &box, transform, 0, wlr_output->transform_matrix);
-
   render_texture(
-      texture, wlr_output, renderer->damage, wlr_renderer, matrix, &box, 1);
+      texture, renderer->damage, renderer->render_pass, &box, 1, transform);
 }
 
 static inline void
@@ -384,23 +292,18 @@ render_background(struct hikari_renderer *renderer, float alpha)
     return;
   }
 
-  float matrix[9];
   struct wlr_output *wlr_output = output->wlr_output;
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
 
   struct wlr_box geometry = { .x = 0, .y = 0 };
   wlr_output_transformed_resolution(
       wlr_output, &geometry.width, &geometry.height);
 
-  wlr_matrix_project_box(matrix, &geometry, 0, 0, wlr_output->transform_matrix);
-
   render_texture(output->background,
-      wlr_output,
       renderer->damage,
-      wlr_renderer,
-      matrix,
+      renderer->render_pass,
       &geometry,
-      alpha);
+      alpha,
+      WL_OUTPUT_TRANSFORM_NORMAL);
 }
 
 #ifdef HAVE_LAYERSHELL
@@ -487,21 +390,42 @@ static inline void
 render_output(struct hikari_output *output, pixman_region32_t *damage)
 {
   struct wlr_output *wlr_output = output->wlr_output;
-  struct wlr_renderer *wlr_renderer = wlr_output->renderer;
 
-  struct hikari_renderer renderer = {
-    .wlr_output = wlr_output, .wlr_renderer = wlr_renderer, .damage = damage
-  };
+  struct wlr_output_state state;
+  wlr_output_state_init(&state);
 
-  wlr_renderer_begin(wlr_renderer, wlr_output->width, wlr_output->height);
-
-  if (pixman_region32_not_empty(damage)) {
-    clear_output(&renderer);
-
-    hikari_server.mode->render(&renderer);
+  struct wlr_render_pass *render_pass =
+      wlr_output_begin_render_pass(wlr_output, &state, NULL);
+  if (render_pass == NULL) {
+    wlr_output_state_finish(&state);
+    wlr_damage_ring_add(&output->damage, damage);
+    wlr_output_schedule_frame(wlr_output);
+    return;
   }
 
-  renderer_end(output, &renderer);
+  /* Always repaint the full output to avoid artefacts from partial damage
+   * tracking across multiple buffers. */
+  int width, height;
+  wlr_output_transformed_resolution(wlr_output, &width, &height);
+  pixman_region32_union_rect(damage, damage, 0, 0, width, height);
+
+  /* Register the buffer with the damage ring for future frames. */
+  wlr_damage_ring_rotate_buffer(&output->damage, state.buffer, damage);
+
+  struct hikari_renderer renderer = {
+    .wlr_output = wlr_output,
+    .render_pass = render_pass,
+    .damage = damage,
+  };
+
+  clear_output(&renderer);
+  hikari_server.mode->render(&renderer);
+
+  wlr_output_add_software_cursors_to_render_pass(
+      wlr_output, render_pass, damage);
+  wlr_render_pass_submit(render_pass);
+  wlr_output_commit_state(wlr_output, &state);
+  wlr_output_state_finish(&state);
 }
 
 #ifdef HAVE_LAYERSHELL
@@ -561,25 +485,32 @@ hikari_renderer_damage_frame_handler(struct wl_listener *listener, void *data)
   struct hikari_output *output =
       wl_container_of(listener, output, damage_frame);
 
+  struct wlr_output *wlr_output = output->wlr_output;
+  bool has_damage = pixman_region32_not_empty(&output->damage.current);
+
+  int out_width, out_height;
+  wlr_output_transformed_resolution(wlr_output, &out_width, &out_height);
+
+  if (!wlr_output->needs_frame && !has_damage) {
+    frame_done(output);
+    return;
+  }
+
   pixman_region32_t buffer_damage;
   pixman_region32_init(&buffer_damage);
 
-  bool needs_frame;
-  if (!wlr_output_damage_attach_render(
-          output->damage, &needs_frame, &buffer_damage)) {
-    goto render_done;
-  }
-
-  if (!needs_frame) {
-    wlr_output_rollback(output->wlr_output);
-    goto render_done;
+  if (has_damage) {
+    pixman_region32_copy(&buffer_damage, &output->damage.current);
+    pixman_region32_clear(&output->damage.current);
+  } else {
+    /* needs_frame is set but damage ring is empty (before first rotate_buffer).
+     * Damage the full output so we actually render. */
+    pixman_region32_union_rect(
+        &buffer_damage, &buffer_damage, 0, 0, out_width, out_height);
   }
 
   render_output(output, &buffer_damage);
-
-render_done:
   pixman_region32_fini(&buffer_damage);
-
   frame_done(output);
 }
 
@@ -807,16 +738,23 @@ render_lock_indicator(struct hikari_renderer *renderer,
     return;
   }
 
-  float matrix[9];
-  struct wlr_renderer *wlr_renderer = renderer->wlr_renderer;
   struct wlr_output *wlr_output = renderer->wlr_output;
 
   struct wlr_box geometry;
   get_lock_indicator_geometry(wlr_output->data, &geometry);
-  wlr_renderer_scissor(wlr_renderer, &geometry);
-  wlr_matrix_project_box(matrix, &geometry, 0, 0, wlr_output->transform_matrix);
 
-  wlr_render_texture_with_matrix(wlr_renderer, texture, matrix, 1);
+  pixman_region32_t clip;
+  pixman_region32_init_rect(
+      &clip, geometry.x, geometry.y, geometry.width, geometry.height);
+
+  struct wlr_render_texture_options opts = {
+    .texture = texture,
+    .dst_box = geometry,
+    .clip = &clip,
+  };
+  wlr_render_pass_add_texture(renderer->render_pass, &opts);
+
+  pixman_region32_fini(&clip);
 }
 
 void

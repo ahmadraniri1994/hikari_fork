@@ -163,7 +163,36 @@ surface_at(
 
 static void
 focus(struct hikari_node *node)
-{}
+{
+}
+
+static void
+hikari_xwayland_unmanaged_view_associate_handler(
+    struct wl_listener *listener, void *data)
+{
+  struct hikari_xwayland_unmanaged_view *xwayland_unmanaged_view =
+      wl_container_of(listener, xwayland_unmanaged_view, associate);
+  struct wlr_xwayland_surface *xwayland_surface =
+      xwayland_unmanaged_view->surface;
+
+  wl_signal_add(
+      &xwayland_surface->surface->events.map, &xwayland_unmanaged_view->map);
+  wl_signal_add(&xwayland_surface->surface->events.unmap,
+      &xwayland_unmanaged_view->unmap);
+}
+
+static void
+hikari_xwayland_unmanaged_view_dissociate_handler(
+    struct wl_listener *listener, void *data)
+{
+  struct hikari_xwayland_unmanaged_view *xwayland_unmanaged_view =
+      wl_container_of(listener, xwayland_unmanaged_view, dissociate);
+
+  wl_list_remove(&xwayland_unmanaged_view->map.link);
+  wl_list_remove(&xwayland_unmanaged_view->unmap.link);
+  wl_list_init(&xwayland_unmanaged_view->map.link);
+  wl_list_init(&xwayland_unmanaged_view->unmap.link);
+}
 
 void
 hikari_xwayland_unmanaged_view_init(
@@ -187,11 +216,19 @@ hikari_xwayland_unmanaged_view_init(
   xwayland_unmanaged_view->hidden = true;
 
   xwayland_unmanaged_view->map.notify = map_handler;
-  wl_signal_add(&xwayland_surface->events.map, &xwayland_unmanaged_view->map);
-
   xwayland_unmanaged_view->unmap.notify = unmap_handler;
+  wl_list_init(&xwayland_unmanaged_view->map.link);
+  wl_list_init(&xwayland_unmanaged_view->unmap.link);
+
+  xwayland_unmanaged_view->associate.notify =
+      hikari_xwayland_unmanaged_view_associate_handler;
   wl_signal_add(
-      &xwayland_surface->events.unmap, &xwayland_unmanaged_view->unmap);
+      &xwayland_surface->events.associate, &xwayland_unmanaged_view->associate);
+
+  xwayland_unmanaged_view->dissociate.notify =
+      hikari_xwayland_unmanaged_view_dissociate_handler;
+  wl_signal_add(&xwayland_surface->events.dissociate,
+      &xwayland_unmanaged_view->dissociate);
 
   xwayland_unmanaged_view->destroy.notify = destroy_handler;
   wl_signal_add(

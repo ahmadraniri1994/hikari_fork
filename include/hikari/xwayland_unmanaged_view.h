@@ -4,7 +4,8 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
-#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/util/box.h>
 
 #include <hikari/node.h>
@@ -21,6 +22,8 @@ struct hikari_xwayland_unmanaged_view {
 
   struct wlr_box geometry;
 
+  struct wl_listener associate;
+  struct wl_listener dissociate;
   struct wl_listener map;
   struct wl_listener unmap;
   struct wl_listener destroy;

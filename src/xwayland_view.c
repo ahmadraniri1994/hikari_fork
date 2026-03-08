@@ -4,8 +4,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include <xcb/xcb_icccm.h>
+
 #include <wlr/types/wlr_cursor.h>
-#include <wlr/types/wlr_output_damage.h>
 #include <wlr/xwayland.h>
 
 #include <hikari/configuration.h>
@@ -363,7 +364,7 @@ constraints(struct hikari_view *view,
   struct hikari_output *output = view->output;
   struct wlr_xwayland_surface *surface = xwayland_view->surface;
 
-  struct wlr_xwayland_surface_size_hints *size_hints = surface->size_hints;
+  xcb_size_hints_t *size_hints = surface->size_hints;
 
   if (size_hints != NULL) {
     *min_width = size_hints->min_width > 0 ? size_hints->min_width : 0;
@@ -379,6 +380,30 @@ constraints(struct hikari_view *view,
     *min_height = 0;
     *max_height = output->geometry.height;
   }
+}
+
+static void
+xwayland_view_associate_handler(struct wl_listener *listener, void *data)
+{
+  struct hikari_xwayland_view *xwayland_view =
+      wl_container_of(listener, xwayland_view, associate);
+  struct wlr_xwayland_surface *xwayland_surface = xwayland_view->surface;
+
+  wl_signal_add(&xwayland_surface->surface->events.map, &xwayland_view->map);
+  wl_signal_add(
+      &xwayland_surface->surface->events.unmap, &xwayland_view->unmap);
+}
+
+static void
+xwayland_view_dissociate_handler(struct wl_listener *listener, void *data)
+{
+  struct hikari_xwayland_view *xwayland_view =
+      wl_container_of(listener, xwayland_view, dissociate);
+
+  wl_list_remove(&xwayland_view->map.link);
+  wl_list_remove(&xwayland_view->unmap.link);
+  wl_list_init(&xwayland_view->map.link);
+  wl_list_init(&xwayland_view->unmap.link);
 }
 
 void
@@ -403,10 +428,16 @@ hikari_xwayland_view_init(struct hikari_xwayland_view *xwayland_view,
   xwayland_view->surface = xwayland_surface;
 
   xwayland_view->map.notify = map_handler;
-  wl_signal_add(&xwayland_surface->events.map, &xwayland_view->map);
-
   xwayland_view->unmap.notify = unmap_handler;
-  wl_signal_add(&xwayland_surface->events.unmap, &xwayland_view->unmap);
+  wl_list_init(&xwayland_view->map.link);
+  wl_list_init(&xwayland_view->unmap.link);
+
+  xwayland_view->associate.notify = xwayland_view_associate_handler;
+  wl_signal_add(&xwayland_surface->events.associate, &xwayland_view->associate);
+
+  xwayland_view->dissociate.notify = xwayland_view_dissociate_handler;
+  wl_signal_add(
+      &xwayland_surface->events.dissociate, &xwayland_view->dissociate);
 
   xwayland_view->destroy.notify = destroy_handler;
   wl_signal_add(&xwayland_surface->events.destroy, &xwayland_view->destroy);

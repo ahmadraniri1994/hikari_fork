@@ -30,6 +30,7 @@
 #endif
 
 struct wlr_input_device;
+struct wlr_session;
 
 struct hikari_output;
 struct hikari_group;
@@ -50,6 +51,7 @@ struct hikari_server {
   struct wl_display *display;
   struct wl_event_loop *event_loop;
   struct wlr_backend *backend;
+  struct wlr_session *session;
   struct wlr_renderer *renderer;
   struct wlr_allocator *allocator;
   struct wlr_xdg_output_manager_v1 *output_manager;
@@ -60,7 +62,7 @@ struct hikari_server {
 
   struct wl_listener new_output;
   struct wl_listener new_input;
-  struct wl_listener new_xdg_surface;
+  struct wl_listener new_xdg_toplevel;
   struct wl_listener request_set_primary_selection;
   struct wl_listener request_set_selection;
   struct wl_listener output_layout_change;

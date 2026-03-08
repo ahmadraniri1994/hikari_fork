@@ -173,7 +173,7 @@ enable_outputs(void)
 
 static void
 key_handler(
-    struct hikari_keyboard *keyboard, struct wlr_event_keyboard_key *event)
+    struct hikari_keyboard *keyboard, struct wlr_keyboard_key_event *event)
 {
   struct hikari_lock_mode *mode = get_mode();
 
@@ -182,8 +182,8 @@ key_handler(
     uint32_t keycode = event->keycode + 8;
     uint32_t codepoint;
 
-    int nsyms = xkb_state_key_get_syms(
-        keyboard->device->keyboard->xkb_state, keycode, &syms);
+    struct wlr_keyboard *kbd = wlr_keyboard_from_input_device(keyboard->device);
+    int nsyms = xkb_state_key_get_syms(kbd->xkb_state, keycode, &syms);
 
     enable_outputs();
 
@@ -237,12 +237,14 @@ key_handler(
 
 static void
 modifiers_handler(struct hikari_keyboard *keyboard)
-{}
+{
+}
 
 static void
 button_handler(
-    struct hikari_cursor *cursor, struct wlr_event_pointer_button *event)
-{}
+    struct hikari_cursor *cursor, struct wlr_pointer_button_event *event)
+{
+}
 
 static void
 reset_visibility(void)
@@ -289,7 +291,8 @@ cancel(void)
 
 static void
 cursor_move(uint32_t time_msec)
-{}
+{
+}
 
 static int
 disable_outputs_handler(void *data)

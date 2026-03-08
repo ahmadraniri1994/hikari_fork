@@ -10,6 +10,7 @@ struct hikari_decoration {
 
   struct wl_listener request_mode;
   struct wl_listener destroy;
+  struct wl_listener surface_configure;
 };
 
 void

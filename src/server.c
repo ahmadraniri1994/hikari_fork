@@ -20,6 +20,7 @@
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_server_decoration.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
@@ -162,7 +163,7 @@ new_virtual_keyboard_handler(struct wl_listener *listener, void *data)
   struct hikari_server *server =
       wl_container_of(listener, server, new_virtual_keyboard);
   struct wlr_virtual_keyboard_v1 *keyboard = data;
-  struct wlr_input_device *device = &keyboard->input_device;
+  struct wlr_input_device *device = &keyboard->keyboard.base;
 
   add_input(server, device);
 }
@@ -184,7 +185,7 @@ new_virtual_pointer_handler(struct wl_listener *listener, void *data)
       wl_container_of(listener, server, new_virtual_pointer);
   struct wlr_virtual_pointer_v1_new_pointer_event *event = data;
   struct wlr_virtual_pointer_v1 *pointer = event->new_pointer;
-  struct wlr_input_device *device = &pointer->input_device;
+  struct wlr_input_device *device = &pointer->pointer.base;
 
   add_input(server, device);
 
@@ -526,7 +527,7 @@ server_decoration_handler(struct wl_listener *listener, void *data)
   struct hikari_view *view =
       wl_container_of(wlr_decoration->surface, view, surface);
   struct wlr_xdg_surface *xdg_surface =
-      wlr_xdg_surface_from_wlr_surface(wlr_decoration->surface);
+      wlr_xdg_surface_try_from_wlr_surface(wlr_decoration->surface);
   struct hikari_xdg_view *xdg_view = xdg_surface->data;
 
   if (xdg_view == NULL) {
@@ -633,16 +634,13 @@ setup_selection(struct hikari_server *server)
 }
 
 static void
-new_xdg_surface_handler(struct wl_listener *listener, void *data)
+new_xdg_toplevel_handler(struct wl_listener *listener, void *data)
 {
   struct hikari_server *server =
-      wl_container_of(listener, server, new_xdg_surface);
+      wl_container_of(listener, server, new_xdg_toplevel);
 
-  struct wlr_xdg_surface *xdg_surface = data;
-
-  if (xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP) {
-    return;
-  }
+  struct wlr_xdg_toplevel *toplevel = data;
+  struct wlr_xdg_surface *xdg_surface = toplevel->base;
 
   struct hikari_xdg_view *xdg_view =
       hikari_malloc(sizeof(struct hikari_xdg_view));
@@ -653,11 +651,11 @@ new_xdg_surface_handler(struct wl_listener *listener, void *data)
 static void
 setup_xdg_shell(struct hikari_server *server)
 {
-  server->xdg_shell = wlr_xdg_shell_create(server->display);
+  server->xdg_shell = wlr_xdg_shell_create(server->display, 2);
 
-  server->new_xdg_surface.notify = new_xdg_surface_handler;
+  server->new_xdg_toplevel.notify = new_xdg_toplevel_handler;
   wl_signal_add(
-      &server->xdg_shell->events.new_surface, &server->new_xdg_surface);
+      &server->xdg_shell->events.new_toplevel, &server->new_xdg_toplevel);
 }
 
 #ifdef HAVE_LAYERSHELL
@@ -674,7 +672,7 @@ new_layer_shell_surface_handler(struct wl_listener *listener, void *data)
 static void
 setup_layer_shell(struct hikari_server *server)
 {
-  server->layer_shell = wlr_layer_shell_v1_create(server->display);
+  server->layer_shell = wlr_layer_shell_v1_create(server->display, 4);
 
   wl_signal_add(&server->layer_shell->events.new_surface,
       &server->new_layer_shell_surface);
@@ -693,13 +691,18 @@ output_layout_change_handler(struct wl_listener *listener, void *data)
   struct hikari_output *output;
   wl_list_for_each (output, &server->outputs, server_outputs) {
     struct wlr_output *wlr_output = output->wlr_output;
-    struct wlr_box *output_box =
-        wlr_output_layout_get_box(hikari_server.output_layout, wlr_output);
+    struct wlr_box output_box;
+    wlr_output_layout_get_box(
+        hikari_server.output_layout, wlr_output, &output_box);
 
-    output->geometry.x = output_box->x;
-    output->geometry.y = output_box->y;
-    output->geometry.width = output_box->width;
-    output->geometry.height = output_box->height;
+    if (output_box.width <= 0 || output_box.height <= 0) {
+      continue;
+    }
+
+    output->geometry.x = output_box.x;
+    output->geometry.y = output_box.y;
+    output->geometry.width = output_box.width;
+    output->geometry.height = output_box.height;
 
     struct hikari_output_config *output_config =
         hikari_configuration_resolve_output_config(
@@ -752,7 +755,13 @@ hikari_server_prepare_privileged(void)
     goto done;
   }
 
-  server->backend = wlr_backend_autocreate(server->display);
+  /* Unset WAYLAND_DISPLAY so wlr_backend_autocreate does not try (and fail
+   * on) a nested Wayland backend when running under X11.  hikari sets its
+   * own WAYLAND_DISPLAY socket later once the compositor is initialised. */
+  unsetenv("WAYLAND_DISPLAY");
+
+  server->backend =
+      wlr_backend_autocreate(server->event_loop, &server->session);
   if (server->backend == NULL) {
     fprintf(stderr, "error: could not create backend\n");
     goto done;
@@ -773,7 +782,7 @@ done:
 static void
 init_noop_output(struct hikari_server *server)
 {
-  server->noop_backend = wlr_headless_backend_create(server->display);
+  server->noop_backend = wlr_headless_backend_create(server->event_loop);
 
   struct wlr_output *wlr_output =
       wlr_headless_add_output(server->noop_backend, 800, 600);
@@ -817,10 +826,19 @@ server_init(struct hikari_server *server, char *config_path)
   server->cycling = false;
   server->workspace = NULL;
 
+  /* Initialise input/output lists early so that new_input/new_output signals
+   * fired during setup (e.g. from wlr_xwayland_create or wlr_backend_start
+   * under the X11 backend) find them in a valid state. */
+  wl_list_init(&server->pointers);
+  wl_list_init(&server->keyboards);
+  wl_list_init(&server->switches);
+  wl_list_init(&server->outputs);
+  wl_list_init(&server->groups);
+  wl_list_init(&server->visible_groups);
+  wl_list_init(&server->visible_views);
+
   hikari_indicator_init(
       &server->indicator, hikari_configuration->indicator_selected);
-
-  wl_list_init(&server->outputs);
 
   signal(SIGPIPE, SIG_IGN);
 
@@ -847,23 +865,20 @@ server_init(struct hikari_server *server, char *config_path)
 
   setenv("WAYLAND_DISPLAY", server->socket, true);
 
-  server->compositor = wlr_compositor_create(server->display, server->renderer);
+  server->compositor =
+      wlr_compositor_create(server->display, 5, server->renderer);
+
+  wlr_subcompositor_create(server->display);
 
   server->data_device_manager = wlr_data_device_manager_create(server->display);
 
-  server->new_input.notify = new_input_handler;
-  wl_signal_add(&server->backend->events.new_input, &server->new_input);
-
-  server->output_layout = wlr_output_layout_create();
+  server->output_layout = wlr_output_layout_create(server->display);
   server->output_manager =
       wlr_xdg_output_manager_v1_create(server->display, server->output_layout);
 
   server->output_layout_change.notify = output_layout_change_handler;
   wl_signal_add(
       &server->output_layout->events.change, &server->output_layout_change);
-
-  server->new_output.notify = new_output_handler;
-  wl_signal_add(&server->backend->events.new_output, &server->new_output);
 
 #ifdef HAVE_GAMMACONTROL
   wlr_gamma_control_manager_v1_create(server->display);
@@ -888,14 +903,6 @@ server_init(struct hikari_server *server, char *config_path)
   setup_layer_shell(server);
 #endif
 
-  wl_list_init(&server->pointers);
-  wl_list_init(&server->keyboards);
-  wl_list_init(&server->switches);
-
-  wl_list_init(&server->groups);
-  wl_list_init(&server->visible_groups);
-  wl_list_init(&server->visible_views);
-
   hikari_dnd_mode_init(&server->dnd_mode);
   hikari_group_assign_mode_init(&server->group_assign_mode);
   hikari_input_grab_mode_init(&server->input_grab_mode);
@@ -911,6 +918,15 @@ server_init(struct hikari_server *server, char *config_path)
   hikari_marks_init();
 
   init_noop_output(server);
+
+  /* Connect new_input and new_output only after everything they depend on
+   * (seat, cursor, output_layout) is fully initialised, so that signals
+   * fired synchronously by wlr_backend_start don't find uninitialised state. */
+  server->new_input.notify = new_input_handler;
+  wl_signal_add(&server->backend->events.new_input, &server->new_input);
+
+  server->new_output.notify = new_output_handler;
+  wl_signal_add(&server->backend->events.new_output, &server->new_output);
 }
 
 static void
@@ -1004,7 +1020,7 @@ hikari_server_stop(void)
 
   wl_list_remove(&server->new_output.link);
   wl_list_remove(&server->new_input.link);
-  wl_list_remove(&server->new_xdg_surface.link);
+  wl_list_remove(&server->new_xdg_toplevel.link);
   wl_list_remove(&server->request_set_primary_selection.link);
   wl_list_remove(&server->request_start_drag.link);
   wl_list_remove(&server->start_drag.link);
@@ -1383,9 +1399,8 @@ hikari_server_session_change_vt(void *arg)
   const intptr_t vt = (intptr_t)arg;
   assert(vt >= 1 && vt <= 12);
 
-  struct wlr_session *session = wlr_backend_get_session(hikari_server.backend);
-  if (session != NULL) {
-    wlr_session_change_vt(session, vt);
+  if (hikari_server.session != NULL) {
+    wlr_session_change_vt(hikari_server.session, vt);
   }
 }
 

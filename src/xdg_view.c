@@ -5,11 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <wlr/render/wlr_renderer.h>
+#include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_cursor.h>
-#include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output_layout.h>
-#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/edges.h>
 
@@ -53,20 +52,20 @@ commit_handler(struct wl_listener *listener, void *data)
 
   if (hikari_view_was_updated(view, serial)) {
     struct wlr_box new_geometry;
-    wlr_xdg_surface_get_geometry(surface, &new_geometry);
+    new_geometry = surface->current.geometry;
 
     switch (view->pending_operation.type) {
       case HIKARI_OPERATION_TYPE_TILE:
       case HIKARI_OPERATION_TYPE_FULL_MAXIMIZE:
       case HIKARI_OPERATION_TYPE_VERTICAL_MAXIMIZE:
       case HIKARI_OPERATION_TYPE_HORIZONTAL_MAXIMIZE:
-        wlr_xdg_toplevel_set_tiled(surface,
+        wlr_xdg_toplevel_set_tiled(surface->toplevel,
             WLR_EDGE_LEFT | WLR_EDGE_RIGHT | WLR_EDGE_TOP | WLR_EDGE_BOTTOM);
         break;
 
       case HIKARI_OPERATION_TYPE_RESET:
       case HIKARI_OPERATION_TYPE_UNMAXIMIZE:
-        wlr_xdg_toplevel_set_tiled(surface, WLR_EDGE_NONE);
+        wlr_xdg_toplevel_set_tiled(surface->toplevel, WLR_EDGE_NONE);
         break;
 
       case HIKARI_OPERATION_TYPE_RESIZE:
@@ -79,7 +78,7 @@ commit_handler(struct wl_listener *listener, void *data)
     bool visible = !hikari_view_is_hidden(view);
 
     struct wlr_box new_geometry;
-    wlr_xdg_surface_get_geometry(surface, &new_geometry);
+    new_geometry = surface->current.geometry;
 
     if (new_geometry.width != geometry->width ||
         new_geometry.height != geometry->height) {
@@ -125,7 +124,7 @@ first_map(struct hikari_xdg_view *xdg_view, bool *focus)
   struct hikari_view *view = (struct hikari_view *)xdg_view;
   struct wlr_box *geometry = &xdg_view->view.geometry;
 
-  wlr_xdg_surface_get_geometry(xdg_surface, geometry);
+  *geometry = xdg_surface->current.geometry;
   hikari_view_refresh_geometry(view, geometry);
 
   const char *app_id = get_app_id(xdg_view);
@@ -233,7 +232,7 @@ activate(struct hikari_view *view, bool active)
   struct hikari_xdg_view *xdg_view = (struct hikari_xdg_view *)view;
 
   if (xdg_view->surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    wlr_xdg_toplevel_set_activated(xdg_view->surface, active);
+    wlr_xdg_toplevel_set_activated(xdg_view->surface->toplevel, active);
 
     hikari_view_damage_whole(view);
   }
@@ -245,7 +244,8 @@ resize(struct hikari_view *view, int width, int height)
   struct hikari_xdg_view *xdg_view = (struct hikari_xdg_view *)view;
 
   if (xdg_view->surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    return wlr_xdg_toplevel_set_size(xdg_view->surface, width, height);
+    return wlr_xdg_toplevel_set_size(
+        xdg_view->surface->toplevel, width, height);
   }
 
   return 0;
@@ -256,7 +256,7 @@ quit(struct hikari_view *view)
 {
   struct hikari_xdg_view *xdg_view = (struct hikari_xdg_view *)view;
 
-  wlr_xdg_toplevel_send_close(xdg_view->surface);
+  wlr_xdg_toplevel_send_close(xdg_view->surface->toplevel);
 }
 
 static void
@@ -412,10 +412,10 @@ xdg_popup_create(struct wlr_xdg_popup *wlr_popup, struct hikari_view *parent)
   wl_signal_add(&wlr_popup->base->events.new_popup, &popup->new_popup);
 
   popup->map.notify = popup_map;
-  wl_signal_add(&wlr_popup->base->events.map, &popup->map);
+  wl_signal_add(&wlr_popup->base->surface->events.map, &popup->map);
 
   popup->unmap.notify = popup_unmap;
-  wl_signal_add(&wlr_popup->base->events.unmap, &popup->unmap);
+  wl_signal_add(&wlr_popup->base->surface->events.unmap, &popup->unmap);
 
   hikari_view_child_init(
       (struct hikari_view_child *)popup, parent, wlr_popup->base->surface);
@@ -429,9 +429,8 @@ request_fullscreen_handler(struct wl_listener *listener, void *data)
   struct hikari_xdg_view *xdg_view =
       wl_container_of(listener, xdg_view, request_fullscreen);
 
-  struct wlr_xdg_toplevel_set_fullscreen_event *event = data;
-
-  wlr_xdg_toplevel_set_fullscreen(xdg_view->surface, event->fullscreen);
+  wlr_xdg_toplevel_set_fullscreen(xdg_view->surface->toplevel,
+      xdg_view->surface->toplevel->requested.fullscreen);
 }
 
 static void
@@ -475,10 +474,10 @@ hikari_xdg_view_init(struct hikari_xdg_view *xdg_view,
   xdg_view->surface->data = xdg_view;
 
   xdg_view->map.notify = map_handler;
-  wl_signal_add(&xdg_surface->events.map, &xdg_view->map);
+  wl_signal_add(&xdg_surface->surface->events.map, &xdg_view->map);
 
   xdg_view->unmap.notify = unmap_handler;
-  wl_signal_add(&xdg_surface->events.unmap, &xdg_view->unmap);
+  wl_signal_add(&xdg_surface->surface->events.unmap, &xdg_view->unmap);
 
   xdg_view->destroy.notify = destroy_handler;
   wl_signal_add(&xdg_surface->events.destroy, &xdg_view->destroy);

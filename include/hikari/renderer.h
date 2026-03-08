@@ -6,14 +6,14 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
-#include <wlr/render/wlr_renderer.h>
+#include <wlr/render/pass.h>
 #include <wlr/types/wlr_output.h>
 
 struct hikari_output;
 
 struct hikari_renderer {
   struct wlr_output *wlr_output;
-  struct wlr_renderer *wlr_renderer;
+  struct wlr_render_pass *render_pass;
   pixman_region32_t *damage;
   struct wlr_box *geometry;
 };

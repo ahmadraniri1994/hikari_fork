@@ -6,8 +6,10 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
-#include <wlr/types/wlr_output_damage.h>
-#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_damage_ring.h>
+#include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_subcompositor.h>
 
 #include <hikari/output_config.h>
 
@@ -15,14 +17,14 @@ struct hikari_renderer;
 
 struct hikari_output {
   struct wlr_output *wlr_output;
-  struct wlr_output_damage *damage;
+  struct wlr_damage_ring damage;
   struct hikari_workspace *workspace;
 
   bool enabled;
 
   struct wl_listener damage_frame;
+  struct wl_listener request_state;
   struct wl_listener destroy;
-  struct wl_listener damage_destroy;
   /* struct wl_listener mode; */
 
 #ifdef HAVE_LAYERSHELL
@@ -82,7 +84,8 @@ hikari_output_add_damage(struct hikari_output *output, struct wlr_box *region)
   assert(region != NULL);
 
   if (output->enabled) {
-    wlr_output_damage_add_box(output->damage, region);
+    wlr_damage_ring_add_box(&output->damage, region);
+    wlr_output_schedule_frame(output->wlr_output);
   }
 }
 
@@ -106,7 +109,9 @@ hikari_output_add_effective_surface_damage(
   pixman_region32_init(&damage);
   wlr_surface_get_effective_damage(surface, &damage);
   pixman_region32_translate(&damage, x, y);
-  wlr_output_damage_add(output->damage, &damage);
+
+  wlr_damage_ring_add(&output->damage, &damage);
+  wlr_output_schedule_frame(output->wlr_output);
   pixman_region32_fini(&damage);
 }
 

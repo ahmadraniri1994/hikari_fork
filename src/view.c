@@ -1,6 +1,7 @@
 #include <hikari/view.h>
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <wlr/types/wlr_cursor.h>
