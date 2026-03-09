@@ -164,13 +164,11 @@ if get_option('layershell')
 endif
 
 # version.h
-version_h = custom_target(
-    'version.h',
+version_h = configure_file(
     output: 'version.h',
-    command: [
-        'sh', '-c',
-        'printf \'#define HIKARI_VERSION "%s"\\n\' ' + meson.project_version() + ' > @OUTPUT@',
-    ],
+    configuration: {
+        'HIKARI_VERSION': '"' + meson.project_version() +'"'
+    }
 )
 generated_srcs += version_h
 
