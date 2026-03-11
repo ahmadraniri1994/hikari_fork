@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0
+
+* Update to `wlroots 0.19.x
+* Add support for `meson`
+
 ## 2.3.3
 
 * update to `wloots` 0.15.0

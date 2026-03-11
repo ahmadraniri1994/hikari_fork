@@ -11,7 +11,7 @@
 # Intended to be called from meson.
 set -e
 
-HIKARI_RELEASE=no
+HIKARI_RELEASE=yes
 VERSION=3.0.0
 
 [ -d ".git" -a "HIKARI_RELEASE" = "no" ] || { echo "$VERSION" && exit 0 ; }
