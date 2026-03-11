@@ -14,7 +14,7 @@ set -e
 HIKARI_RELEASE=no
 VERSION=3.0.1
 
-[ -d ".git" -a "HIKARI_RELEASE" = "no" ] || { echo "$VERSION" && exit 0 ; }
+[ -d ".git" -a "$HIKARI_RELEASE" = "no" ] || { echo "$VERSION" && exit 0 ; }
 
 git describe --always --long --dirty --tags || echo "$VERSION"
 
