@@ -11,7 +11,7 @@ WITH_VIRTUAL_INPUT = YES
 .endif
 
 OS != uname
-VERSION ?= "CURRENT"
+VERSION != tools/hikari-version-str.sh
 PREFIX ?= /usr/local
 PKG_CONFIG ?= pkg-config
 ETC_PREFIX ?= ${PREFIX}
@@ -201,7 +201,7 @@ clean-doc:
 
 clean: clean-doc
 	@echo "cleaning headers"
-	@test -e _darcs && rm version.h 2> /dev/null ||:
+	@rm version.h 2> /dev/null ||:
 	@rm ${PROTOCOL_HEADERS} 2> /dev/null ||:
 	@echo "cleaning object files"
 	@rm ${OBJS} 2> /dev/null ||:
