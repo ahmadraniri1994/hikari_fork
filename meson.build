@@ -3,7 +3,7 @@ project(
     'c',
     license: 'GPL-3.0-or-later',
     default_options: ['c_std=c99', 'warning_level=2', 'werror=false'],
-    version: 'CURRENT',
+    version: run_command('./tools/hikari-version-str.sh', check: true).stdout().strip(),
 )
 
 srcs = [
@@ -108,6 +108,8 @@ endif
 if get_option('virtualinput')
     add_project_arguments(['-DHAVE_VIRTUAL_INPUT=1'], language: 'c')
 endif
+
+meson.add_dist_script('tools/dist-tarball.sh')
 
 # Dependencies
 wlroots    = dependency('wlroots-0.19')
