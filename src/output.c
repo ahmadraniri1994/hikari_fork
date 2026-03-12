@@ -107,6 +107,51 @@ done:
 }
 
 void
+hikari_output_load_background_color(
+    struct hikari_output *output, uint32_t color)
+{
+  if (output->background != NULL) {
+    wlr_texture_destroy(output->background);
+    output->background = NULL;
+  }
+
+  assert(output->background == NULL);
+
+  int output_width = output->geometry.width;
+  int output_height = output->geometry.height;
+
+  if (output_width <= 0 || output_height <= 0) {
+    goto done;
+  }
+
+  int stride = output_width * 4;
+  uint32_t *data = hikari_malloc((size_t)output_height * (size_t)stride);
+
+  /* pixman_fill stride is in 32-bit words; bpp=32; color is 0xRRGGBB,
+   * stored fully opaque as 0xFFRRGGBB in ARGB8888. */
+  pixman_fill(data,
+      output_width,
+      32,
+      0,
+      0,
+      output_width,
+      output_height,
+      0xFF000000 | color);
+
+  struct wlr_renderer *renderer = output->wlr_output->renderer;
+
+  output->background = wlr_texture_from_pixels(
+      renderer, DRM_FORMAT_ARGB8888, stride, output_width, output_height, data);
+
+  hikari_free(data);
+
+done:
+  if (output->enabled) {
+    hikari_output_damage_whole(output);
+  }
+}
+
+void
 hikari_output_damage_whole(struct hikari_output *output)
 {
   assert(output != NULL);

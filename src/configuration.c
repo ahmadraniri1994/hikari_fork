@@ -1420,6 +1420,16 @@ parse_output_config(struct hikari_output_config *output_config,
             "\"background\"\n");
         goto done;
       }
+    } else if (!strcmp(key, "color")) {
+      int64_t color_value;
+
+      if (!ucl_object_toint_safe(cur, &color_value)) {
+        fprintf(
+            stderr, "configuration error: expected integer for \"color\"\n");
+        goto done;
+      }
+
+      hikari_output_config_set_color(output_config, (uint32_t)color_value);
     } else if (!strcmp(key, "position")) {
       struct hikari_position_config position;
       if (!hikari_position_config_absolute_parse(&position, cur)) {
@@ -1434,6 +1444,14 @@ parse_output_config(struct hikari_output_config *output_config,
           "configuration error: unknown \"outputs\" configuration key \"%s\"\n",
           key);
     }
+  }
+
+  if (hikari_output_config_has_background(output_config) &&
+      hikari_output_config_has_color(output_config)) {
+    fprintf(stderr,
+        "configuration error: \"background\" and \"color\" are mutually "
+        "exclusive\n");
+    goto done;
   }
 
   success = true;
@@ -1774,7 +1792,10 @@ hikari_configuration_reload(char *config_path)
           }
         }
 
-        if (output_config->background.value != NULL) {
+        if (hikari_output_config_has_color(output_config)) {
+          hikari_output_load_background_color(
+              output, output_config->color.value);
+        } else if (output_config->background.value != NULL) {
           hikari_output_load_background(output,
               output_config->background.value,
               output_config->background_fit.value);

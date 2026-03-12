@@ -22,6 +22,7 @@ hikari_output_config_init(
   hikari_output_config_init_background(output_config, NULL);
   hikari_output_config_init_background_fit(
       output_config, HIKARI_BACKGROUND_STRETCH);
+  hikari_output_config_init_color(output_config, 0);
   hikari_output_config_init_position(output_config, default_position);
 }
 
@@ -41,15 +42,27 @@ hikari_output_config_merge(struct hikari_output_config *output_config,
 #define MERGE(option)                                                          \
   hikari_output_config_merge_##option(output_config, default_config);
 
-  if (hikari_output_config_merge_background(output_config, default_config)) {
-    char *background = default_config->background.value;
+  bool has_bg = hikari_output_config_has_background(output_config);
+  bool has_color = hikari_output_config_has_color(output_config);
 
-    if (background != NULL) {
-      output_config->background.value = strdup(background);
+  if (!has_bg && !has_color) {
+    if (hikari_output_config_has_color(default_config)) {
+      MERGE(color);
+    } else {
+      if (hikari_output_config_merge_background(
+              output_config, default_config)) {
+        char *background = default_config->background.value;
+
+        if (background != NULL) {
+          output_config->background.value = strdup(background);
+        }
+      }
+      MERGE(background_fit);
     }
+  } else if (has_bg) {
+    MERGE(background_fit);
   }
 
-  MERGE(background_fit);
   MERGE(position);
 #undef MERGE
 }

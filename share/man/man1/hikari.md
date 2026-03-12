@@ -1143,6 +1143,10 @@ When defining a *background* object the following attributes are available.
   *center*, *stretch* and *tile*. *stretch* is the default even when specifying
   the background image as a string.
 
+Color can also be specified via the **color** attribute.  The single value
+accepts the same format as seen in the `Colorschemes` section.   Note that
+this value is mutually exclusive with the **background** option.
+
 Configuring output *eDP-1* and *WL-1* could look like this.
 
 ```
@@ -1159,6 +1163,20 @@ outputs {
   }
 }
 ```
+
+Because a **color** attribute conflicts with the **background** attribute, the
+following is valid:
+
+```
+outputs {
+  "eDP-1" = {
+    color = 0x431297
+  }
+}
+```
+
+Which will set the appropriate background of that monitor to the desired
+color.
 
 Output position can be given explicitly using the *position* attribute. If none
 is given during startup **hikari** will automatically configure the output.

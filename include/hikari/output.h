@@ -64,6 +64,10 @@ hikari_output_load_background(struct hikari_output *output,
     enum hikari_background_fit background_fit);
 
 void
+hikari_output_load_background_color(
+    struct hikari_output *output, uint32_t color);
+
+void
 hikari_output_move(struct hikari_output *output, double lx, double ly);
 
 struct hikari_output *

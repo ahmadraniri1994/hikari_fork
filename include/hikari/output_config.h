@@ -2,6 +2,7 @@
 #define HIKARI_OUTPUT_CONFIG_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include <wayland-util.h>
 
@@ -21,6 +22,7 @@ struct hikari_output_config {
 
   HIKARI_OPTION(background, char *);
   HIKARI_OPTION(background_fit, enum hikari_background_fit);
+  HIKARI_OPTION(color, uint32_t);
   HIKARI_OPTION(position, struct hikari_position_config);
 };
 
@@ -37,6 +39,7 @@ hikari_output_config_merge(struct hikari_output_config *output_config,
 
 HIKARI_OPTION_FUNS(output, background, char *);
 HIKARI_OPTION_FUNS(output, background_fit, enum hikari_background_fit);
+HIKARI_OPTION_FUNS(output, color, uint32_t);
 HIKARI_OPTION_FUNS(output, position, struct hikari_position_config);
 
 #endif

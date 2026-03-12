@@ -710,9 +710,14 @@ output_layout_change_handler(struct wl_listener *listener, __unused void *data)
             hikari_configuration, wlr_output->name);
 
     if (output_config != NULL) {
-      hikari_output_load_background(output,
-          output_config->background.value,
-          output_config->background_fit.value);
+      if (hikari_output_config_has_color(output_config)) {
+        hikari_output_load_background_color(
+            output, output_config->color.value);
+      } else {
+        hikari_output_load_background(output,
+            output_config->background.value,
+            output_config->background_fit.value);
+      }
     }
 
 #ifdef HAVE_XWAYLAND
