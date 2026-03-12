@@ -216,6 +216,25 @@ hikari_conf = custom_target(
     install_dir: etc_prefix + '/etc/hikari',
 )
 
+# Man page
+pandoc = find_program('pandoc', required: false)
+if pandoc.found()
+    custom_target('hikari.1',
+        input: 'share/man/man1/hikari.md',
+        output: 'hikari.1',
+        command: [
+            pandoc,
+            '-M', 'title:HIKARI(1) ' + meson.project_version() + ' | hikari - Wayland Compositor',
+            '-s',
+            '--to', 'man',
+            '-o', '@OUTPUT@',
+            '@INPUT@',
+        ],
+        install: true,
+        install_dir: get_option('mandir') / 'man1',
+    )
+endif
+
 # Summary
 summary({
     'wlroots-0.19': wlroots,
@@ -236,3 +255,7 @@ summary({
     'Virtual Input': get_option('virtualinput'),
     'Debug build': get_option('hikari_debug'),
 }, bool_yn: true, section: 'Flags')
+
+summary({
+    'Man pages': pandoc.found(),
+}, bool_yn: true, section: 'Documentation')
