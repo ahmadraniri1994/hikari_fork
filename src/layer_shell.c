@@ -359,7 +359,9 @@ commit_handler(struct wl_listener *listener, __unused void *data)
   struct hikari_output *output = layer->output;
 
   if (!layer->mapped) {
-    calculate_geometry(layer);
+    if (layer->surface->initialized) {
+      calculate_geometry(layer);
+    }
     return;
   }
 
@@ -547,8 +549,10 @@ calculate_geometry(struct hikari_layer *layer)
 
   layer->geometry = geometry;
 
-  wlr_layer_surface_v1_configure(
+  if (layer->surface->initialized) {
+    wlr_layer_surface_v1_configure(
       layer->surface, geometry.width, geometry.height);
+  }
 }
 
 static void

@@ -4,6 +4,8 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
+#include <wlr/types/wlr_output_management_v1.h>
+
 #ifdef HAVE_VIRTUAL_INPUT
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_virtual_pointer_v1.h>
@@ -55,6 +57,7 @@ struct hikari_server {
   struct wlr_renderer *renderer;
   struct wlr_allocator *allocator;
   struct wlr_xdg_output_manager_v1 *output_manager;
+  struct wlr_output_manager_v1 *output_management;
   struct wlr_data_device_manager *data_device_manager;
 
   struct wlr_backend *noop_backend;
@@ -66,6 +69,8 @@ struct hikari_server {
   struct wl_listener request_set_primary_selection;
   struct wl_listener request_set_selection;
   struct wl_listener output_layout_change;
+  struct wl_listener output_management_apply;
+  struct wl_listener output_management_test;
   struct wl_listener new_decoration;
   struct wl_listener new_toplevel_decoration;
   struct wl_listener request_start_drag;

@@ -17,6 +17,7 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_output_layout.h>
+#include <wlr/types/wlr_output_management_v1.h>
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_seat.h>
@@ -681,6 +682,83 @@ setup_layer_shell(struct hikari_server *server)
 }
 #endif
 
+static void
+output_manager_apply_config(
+    struct wlr_output_configuration_v1 *config, bool test_only)
+{
+  size_t states_len;
+  struct wlr_backend_output_state *states =
+      wlr_output_configuration_v1_build_state(config, &states_len);
+
+  bool ok;
+  if (test_only) {
+    ok = wlr_backend_test(hikari_server.backend, states, states_len);
+  } else {
+    ok = wlr_backend_commit(hikari_server.backend, states, states_len);
+  }
+  free(states);
+
+  if (!ok) {
+    wlr_output_configuration_v1_send_failed(config);
+    wlr_output_configuration_v1_destroy(config);
+    return;
+  }
+
+  if (!test_only) {
+    struct wlr_output_configuration_head_v1 *config_head;
+    wl_list_for_each (config_head, &config->heads, link) {
+      struct wlr_output *wlr_output = config_head->state.output;
+      struct hikari_output *output = wlr_output->data;
+
+      if (output == NULL) {
+        continue;
+      }
+
+      if (config_head->state.enabled) {
+        wlr_output_layout_add(hikari_server.output_layout,
+            wlr_output,
+            config_head->state.x,
+            config_head->state.y);
+      }
+
+      hikari_output_set_enabled(output, config_head->state.enabled);
+    }
+
+    hikari_output_notify_output_management();
+  }
+
+  wlr_output_configuration_v1_send_succeeded(config);
+  wlr_output_configuration_v1_destroy(config);
+}
+
+static void
+output_manager_apply_handler(__unused struct wl_listener *listener, void *data)
+{
+  struct wlr_output_configuration_v1 *config = data;
+  output_manager_apply_config(config, false);
+}
+
+static void
+output_manager_test_handler(__unused struct wl_listener *listener, void *data)
+{
+  struct wlr_output_configuration_v1 *config = data;
+  output_manager_apply_config(config, true);
+}
+
+static void
+setup_output_manager(struct hikari_server *server)
+{
+  server->output_management = wlr_output_manager_v1_create(server->display);
+
+  server->output_management_apply.notify = output_manager_apply_handler;
+  wl_signal_add(&server->output_management->events.apply,
+      &server->output_management_apply);
+
+  server->output_management_test.notify = output_manager_test_handler;
+  wl_signal_add(
+      &server->output_management->events.test, &server->output_management_test);
+}
+
 struct hikari_server hikari_server;
 
 static void
@@ -724,6 +802,8 @@ output_layout_change_handler(struct wl_listener *listener, __unused void *data)
     hikari_output_rearrange_xwayland_views(output);
 #endif
   }
+
+  hikari_output_notify_output_management();
 }
 
 static bool
@@ -882,6 +962,9 @@ server_init(struct hikari_server *server, char *config_path)
   server->output_manager =
       wlr_xdg_output_manager_v1_create(server->display, server->output_layout);
 
+  server->output_management = NULL;
+  setup_output_manager(server);
+
   server->output_layout_change.notify = output_layout_change_handler;
   wl_signal_add(
       &server->output_layout->events.change, &server->output_layout_change);
@@ -1032,6 +1115,8 @@ hikari_server_stop(void)
   wl_list_remove(&server->request_start_drag.link);
   wl_list_remove(&server->start_drag.link);
   wl_list_remove(&server->output_layout_change.link);
+  wl_list_remove(&server->output_management_apply.link);
+  wl_list_remove(&server->output_management_test.link);
 #ifdef HAVE_XWAYLAND
   wl_list_remove(&server->new_xwayland_surface.link);
 #endif

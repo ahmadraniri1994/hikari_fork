@@ -58,6 +58,17 @@ hikari_output_disable(struct hikari_output *output);
 void
 hikari_output_enable(struct hikari_output *output);
 
+/*
+ * Sync the hikari-internal enabled state (frame listener) to match the given
+ * value WITHOUT issuing a wlr_output_commit_state().  Use this after
+ * wlr_backend_commit() has already applied the hardware enable/disable.
+ */
+void
+hikari_output_set_enabled(struct hikari_output *output, bool enabled);
+
+void
+hikari_output_notify_output_management(void);
+
 void
 hikari_output_load_background(struct hikari_output *output,
     const char *path,

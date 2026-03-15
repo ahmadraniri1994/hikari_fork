@@ -3,6 +3,7 @@
 #include <drm_fourcc.h>
 
 #include <wlr/backend.h>
+#include <wlr/types/wlr_output_management_v1.h>
 
 #include <hikari/memory.h>
 #include <hikari/renderer.h>
@@ -220,6 +221,53 @@ hikari_output_enable(struct hikari_output *output)
   output->enabled = true;
 }
 
+static struct wlr_output_configuration_v1 *
+build_output_config(void)
+{
+  struct wlr_output_configuration_v1 *config =
+      wlr_output_configuration_v1_create();
+
+  struct hikari_output *output;
+  wl_list_for_each (output, &hikari_server.outputs, server_outputs) {
+    struct wlr_output_configuration_head_v1 *head =
+        wlr_output_configuration_head_v1_create(config, output->wlr_output);
+    head->state.x = output->geometry.x;
+    head->state.y = output->geometry.y;
+  }
+
+  return config;
+}
+
+void
+hikari_output_notify_output_management(void)
+{
+  if (hikari_server.output_management == NULL) {
+    return;
+  }
+
+  struct wlr_output_configuration_v1 *config = build_output_config();
+  wlr_output_manager_v1_set_configuration(
+      hikari_server.output_management, config);
+}
+
+void
+hikari_output_set_enabled(struct hikari_output *output, bool enabled)
+{
+  struct wlr_output *wlr_output = output->wlr_output;
+
+  if (enabled && !output->enabled) {
+    wl_list_remove(&output->damage_frame.link);
+    output->damage_frame.notify = hikari_renderer_damage_frame_handler;
+    wl_signal_add(&wlr_output->events.frame, &output->damage_frame);
+    output->enabled = true;
+    hikari_output_damage_whole(output);
+  } else if (!enabled && output->enabled) {
+    wl_list_remove(&output->damage_frame.link);
+    wl_list_init(&output->damage_frame.link);
+    output->enabled = false;
+  }
+}
+
 static void
 output_geometry(struct hikari_output *output)
 {
@@ -349,6 +397,8 @@ hikari_output_init(struct hikari_output *output, struct wlr_output *wlr_output)
           hikari_server.noop_output->workspace, output->workspace);
       hikari_workspace_focus_view(output->workspace, NULL);
     }
+
+    hikari_output_notify_output_management();
   }
 }
 
@@ -401,6 +451,7 @@ hikari_output_fini(struct hikari_output *output)
     }
 
     wl_list_remove(&output->server_outputs);
+    hikari_output_notify_output_management();
   } else {
     hikari_server.workspace = NULL;
   }
