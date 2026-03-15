@@ -23,8 +23,8 @@ individual views.
 
 # Note...
 
-This is a fork from the original (hikari
-repository)[https://hub.darcs.net/raichoo/hikari] which doesn't seem to be
+This is a fork from the original [hikari
+repository](https://hub.darcs.net/raichoo/hikari) which doesn't seem to be
 active any longer.
 
 Although this work was originally done in the darcs VCS, all future work is
