@@ -247,6 +247,9 @@ destroy_handler(struct wl_listener *listener, __unused void *data)
 
   struct hikari_view *view = (struct hikari_view *)xwayland_view;
 
+  wl_list_remove(&xwayland_view->associate.link);
+  wl_list_remove(&xwayland_view->dissociate.link);
+
   if (hikari_view_is_mapped(view)) {
     unmap(view);
   }

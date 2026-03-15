@@ -121,6 +121,9 @@ destroy_handler(struct wl_listener *listener, __unused void *data)
   printf("UNMANAGED XWAYLAND DESTROY %p\n", xwayland_unmanaged_view);
 #endif
 
+  wl_list_remove(&xwayland_unmanaged_view->associate.link);
+  wl_list_remove(&xwayland_unmanaged_view->dissociate.link);
+
   if (!xwayland_unmanaged_view->hidden) {
     unmap(xwayland_unmanaged_view);
     hikari_server_cursor_focus();
