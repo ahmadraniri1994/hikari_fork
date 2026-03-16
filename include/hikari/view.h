@@ -67,6 +67,9 @@ struct hikari_view {
   struct wlr_box *current_geometry;
   struct wlr_box *current_unmaximized_geometry;
 
+  int surface_offset_x;
+  int surface_offset_y;
+
   struct hikari_view_decoration decoration;
 
   uint32_t (*resize)(struct hikari_view *, int, int);

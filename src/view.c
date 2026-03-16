@@ -562,6 +562,8 @@ hikari_view_init(struct hikari_view *view,
   view->current_unmaximized_geometry = &view->geometry;
   view->foreign_toplevel = NULL;
   view->decoration.wlr_decoration = NULL;
+  view->surface_offset_x = 0;
+  view->surface_offset_y = 0;
 
   hikari_view_unset_dirty(view);
   view->pending_operation.tile = NULL;
@@ -671,8 +673,8 @@ damage_whole_surface(struct wlr_surface *surface, int sx, int sy, void *data)
     struct wlr_box geometry;
     memcpy(&geometry, damage_data->geometry, sizeof(struct wlr_box));
 
-    geometry.x += sx;
-    geometry.y += sy;
+    geometry.x += view->surface_offset_x + sx;
+    geometry.y += view->surface_offset_y + sy;
     geometry.width = surface->current.width;
     geometry.height = surface->current.height;
 
@@ -1782,9 +1784,12 @@ damage_surface(struct wlr_surface *surface, int sx, int sy, void *data)
     damage_whole_surface(surface, sx, sy, data);
   } else {
     struct wlr_box *geometry = damage_data->geometry;
+    struct hikari_view *view = damage_data->view;
 
-    hikari_output_add_effective_surface_damage(
-        output, surface, geometry->x + sx, geometry->y + sy);
+    hikari_output_add_effective_surface_damage(output,
+        surface,
+        geometry->x + view->surface_offset_x + sx,
+        geometry->y + view->surface_offset_y + sy);
   }
 }
 

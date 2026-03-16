@@ -52,6 +52,9 @@ commit_handler(struct wl_listener *listener, __unused void *data)
 
   assert(view->surface != NULL);
 
+  view->surface_offset_x = -surface->current.geometry.x;
+  view->surface_offset_y = -surface->current.geometry.y;
+
   if (hikari_view_was_updated(view, serial)) {
     struct wlr_box new_geometry;
     new_geometry = surface->current.geometry;
@@ -100,8 +103,10 @@ commit_handler(struct wl_listener *listener, __unused void *data)
       }
     } else if (output->enabled) {
       if (visible) {
-        hikari_output_add_effective_surface_damage(
-            output, surface->surface, geometry->x, geometry->y);
+        hikari_output_add_effective_surface_damage(output,
+            surface->surface,
+            geometry->x + view->surface_offset_x,
+            geometry->y + view->surface_offset_y);
       } else {
         hikari_output_schedule_frame(output);
       }
@@ -127,6 +132,8 @@ first_map(struct hikari_xdg_view *xdg_view, __unused bool *focus)
   struct wlr_box *geometry = &xdg_view->view.geometry;
 
   *geometry = xdg_surface->current.geometry;
+  view->surface_offset_x = -xdg_surface->current.geometry.x;
+  view->surface_offset_y = -xdg_surface->current.geometry.y;
   hikari_view_refresh_geometry(view, geometry);
 
   const char *app_id = get_app_id(xdg_view);

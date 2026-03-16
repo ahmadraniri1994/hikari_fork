@@ -330,7 +330,10 @@ render_view(struct hikari_renderer *renderer, struct hikari_view *view)
     render_border(&view->border, renderer);
   }
 
-  renderer->geometry = hikari_view_geometry(view);
+  struct wlr_box surface_geometry = *hikari_view_geometry(view);
+  surface_geometry.x += view->surface_offset_x;
+  surface_geometry.y += view->surface_offset_y;
+  renderer->geometry = &surface_geometry;
 
   hikari_node_for_each_surface(
       (struct hikari_node *)view, render_surface, renderer);
