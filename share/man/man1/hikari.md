@@ -852,6 +852,21 @@ Standard border thickness is set to **1**.
 border = 1
 ```
 
+* **border_style**
+
+  Specifies rendering of the borders and corners of a window.  The possible
+  values are **fvwm**, **mwm**, and, **none**.
+
+  **hikari** defaults to "none".
+
+```
+border_style = "fvwm"
+```
+
+  Note that setting this option gives control of how the *active* and
+  *inactive* *colorscheme* values are rendered.
+
+
 * **gap**
 
   A gap is some extra space that is left between views when using a layout or
@@ -894,7 +909,57 @@ are specified using hexadecimal RGB values (e.g. 0xE6DB74).
 
 * **active**
 
-  Indicates view focus.
+  Indicates view focus.  A single color maybe given, such as:
+
+```
+active = 0xFF00FF
+```
+
+  However, the active window can also be styled into its constituent borders and
+corners.  These use the cardinal point system to refer to.  The diagram below
+shows the anatomy of a window:
+
+```
++NW-------------------N--------------------NE+
+|                                            |
+|                                            |
+|                                            |
+W                                            E
+|                                            |
+|                                            |
+|                                            |
++SW-------------------S--------------------SE+
+```
+
+To style these components, see the the example below:
+
+```
+active = {
+  n = 0xF0F1D9
+  s = 0xF76EDF
+  e = 0xD3BC09
+  w = 0xFF00FF
+}
+```
+
+  This would set the N, S, E, and W borders of the window to the specified
+colors.
+
+  By leaving out the corner colors (NW, NE, SE, SW) they default to *0xFFFFFF*
+which is white.
+
+  It is, however, possible to set a base color for all constituent parts which
+are inherited from, if they're not specified in the config.  For example:
+
+```
+active = {
+  base = 0xFF00FF
+  n = 0xF0F0F0
+}
+```
+
+  This would change just the *n* border to that color, leaving all other
+constituent parts rendering from the *base* color.
 
 * **background**
 
@@ -921,7 +986,8 @@ are specified using hexadecimal RGB values (e.g. 0xE6DB74).
 
 * **inactive**
 
-  Indicates that a view does not have focus.
+  Indicates that a view does not have focus.  All options here, are the same
+  as the description under **active**.
 
 * **insert**
 

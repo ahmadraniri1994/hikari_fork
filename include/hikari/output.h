@@ -8,6 +8,7 @@
 
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_damage_ring.h>
+
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_subcompositor.h>
 
@@ -55,6 +56,9 @@ hikari_output_damage_whole(struct hikari_output *output);
 
 void
 hikari_output_disable(struct hikari_output *output);
+
+void
+hikari_output_regenerate_border_styles(struct hikari_output *output);
 
 void
 hikari_output_enable(struct hikari_output *output);

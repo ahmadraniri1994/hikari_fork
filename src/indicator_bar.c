@@ -95,7 +95,7 @@ hikari_indicator_bar_update(struct hikari_indicator_bar *indicator_bar,
       cairo, background[0], background[1], background[2], background[3]);
   cairo_paint(cairo);
 
-  float *border_inactive = hikari_configuration->border_inactive;
+  float *border_inactive = hikari_configuration->border_inactive.n;
   cairo_set_source_rgba(cairo,
       border_inactive[0],
       border_inactive[1],

@@ -28,7 +28,7 @@ init_indicator_circle(float color[static 4])
   cairo_t *cairo = cairo_create(surface);
   PangoLayout *layout = pango_cairo_create_layout(cairo);
 
-  float *border_inactive = hikari_configuration->border_active;
+  float *border_inactive = hikari_configuration->border_active.n;
   cairo_set_source_rgba(cairo,
       border_inactive[0],
       border_inactive[1],
@@ -169,7 +169,8 @@ get_geometry(struct hikari_output *output, struct wlr_box *geometry)
 }
 
 void
-hikari_lock_indicator_damage(__unused struct hikari_lock_indicator *lock_indicator)
+hikari_lock_indicator_damage(
+    __unused struct hikari_lock_indicator *lock_indicator)
 {
   assert(lock_indicator != NULL);
 

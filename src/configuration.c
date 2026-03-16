@@ -1,5 +1,7 @@
 #include <hikari/configuration.h>
 
+#include <hikari/color.h>
+
 #include <ctype.h>
 #include <errno.h>
 
@@ -40,6 +42,24 @@
 #include <hikari/compat.h>
 
 extern char **environ;
+
+void
+hikari_border_color_set_uniform(struct hikari_border_color *bc, uint32_t color)
+{
+  hikari_color_convert(bc->n, color);
+  hikari_color_convert(bc->s, color);
+  hikari_color_convert(bc->e, color);
+  hikari_color_convert(bc->w, color);
+  hikari_color_convert(bc->nw, color);
+  hikari_color_convert(bc->ne, color);
+  hikari_color_convert(bc->sw, color);
+  hikari_color_convert(bc->se, color);
+  bc->has_corners = false;
+  bc->has_nw = false;
+  bc->has_ne = false;
+  bc->has_sw = false;
+  bc->has_se = false;
+}
 
 struct hikari_configuration *hikari_configuration = NULL;
 
@@ -496,6 +516,88 @@ copy_in_config_string(const ucl_object_t *obj)
 }
 
 static bool
+parse_border_color(
+    struct hikari_border_color *border_color, const ucl_object_t *obj)
+{
+  const ucl_object_t *cur;
+  int64_t color;
+  bool has_nw = false, has_ne = false, has_sw = false, has_se = false;
+
+  ucl_object_iter_t it = ucl_object_iterate_new(obj);
+
+  /* First pass: look for a "base" key to set all edges uniformly
+   * before individual overrides. */
+  while ((cur = ucl_object_iterate_safe(it, false)) != NULL) {
+    const char *key = ucl_object_key(cur);
+    if (!strcmp("base", key)) {
+      if (!ucl_object_toint_safe(cur, &color)) {
+        fprintf(stderr, "configuration error: expected integer for \"base\"\n");
+        ucl_object_iterate_free(it);
+        return false;
+      }
+      hikari_border_color_set_uniform(border_color, color);
+      break;
+    }
+  }
+  ucl_object_iterate_free(it);
+
+  /* Second pass: apply individual edge overrides. */
+  it = ucl_object_iterate_new(obj);
+  while ((cur = ucl_object_iterate_safe(it, false)) != NULL) {
+    const char *key = ucl_object_key(cur);
+
+    if (!strcmp("base", key)) {
+      continue; /* already handled */
+    }
+
+    if (!ucl_object_toint_safe(cur, &color)) {
+      fprintf(
+          stderr, "configuration error: expected integer for \"%s\"\n", key);
+      ucl_object_iterate_free(it);
+      return false;
+    }
+
+    if (!strcmp("n", key)) {
+      hikari_color_convert(border_color->n, color);
+    } else if (!strcmp("s", key)) {
+      hikari_color_convert(border_color->s, color);
+    } else if (!strcmp("e", key)) {
+      hikari_color_convert(border_color->e, color);
+    } else if (!strcmp("w", key)) {
+      hikari_color_convert(border_color->w, color);
+    } else if (!strcmp("nw", key)) {
+      hikari_color_convert(border_color->nw, color);
+      has_nw = true;
+    } else if (!strcmp("ne", key)) {
+      hikari_color_convert(border_color->ne, color);
+      has_ne = true;
+    } else if (!strcmp("sw", key)) {
+      hikari_color_convert(border_color->sw, color);
+      has_sw = true;
+    } else if (!strcmp("se", key)) {
+      hikari_color_convert(border_color->se, color);
+      has_se = true;
+    } else {
+      fprintf(stderr,
+          "configuration error: unknown border color key \"%s\"\n",
+          key);
+      ucl_object_iterate_free(it);
+      return false;
+    }
+  }
+
+  ucl_object_iterate_free(it);
+
+  border_color->has_corners = (has_nw || has_ne || has_sw || has_se);
+  border_color->has_nw = has_nw;
+  border_color->has_ne = has_ne;
+  border_color->has_sw = has_sw;
+  border_color->has_se = has_se;
+
+  return true;
+}
+
+static bool
 parse_colorscheme(struct hikari_configuration *configuration,
     const ucl_object_t *colorscheme_obj)
 {
@@ -548,22 +650,22 @@ parse_colorscheme(struct hikari_configuration *configuration,
       }
 
       hikari_color_convert(configuration->indicator_insert, color);
-    } else if (!strcmp("active", key)) {
-      if (!ucl_object_toint_safe(cur, &color)) {
-        fprintf(
-            stderr, "configuration error: expected integer for \"%s\"\n", key);
+    } else if (!strcmp("active", key) || !strcmp("inactive", key)) {
+      struct hikari_border_color *bc = !strcmp("active", key)
+                                           ? &configuration->border_active
+                                           : &configuration->border_inactive;
+      if (ucl_object_toint_safe(cur, &color)) {
+        hikari_border_color_set_uniform(bc, color);
+      } else if (ucl_object_type(cur) == UCL_OBJECT) {
+        if (!parse_border_color(bc, cur)) {
+          goto done;
+        }
+      } else {
+        fprintf(stderr,
+            "configuration error: expected integer or object for \"%s\"\n",
+            key);
         goto done;
       }
-
-      hikari_color_convert(configuration->border_active, color);
-    } else if (!strcmp("inactive", key)) {
-      if (!ucl_object_toint_safe(cur, &color)) {
-        fprintf(
-            stderr, "configuration error: expected integer for \"%s\"\n", key);
-        goto done;
-      }
-
-      hikari_color_convert(configuration->border_inactive, color);
     } else if (!strcmp("foreground", key)) {
       if (!ucl_object_toint_safe(cur, &color)) {
         fprintf(
@@ -1601,6 +1703,39 @@ parse_ui(struct hikari_configuration *configuration, const ucl_object_t *ui_obj)
       if (!parse_step(configuration, cur)) {
         goto done;
       }
+    } else if (!strcmp(key, "border_style")) {
+      const char *style;
+      if (!ucl_object_tostring_safe(cur, &style)) {
+        fprintf(stderr,
+            "configuration error: expected string for \"border_style\"\n");
+        goto done;
+      }
+      if (!strcmp(style, "mwm")) {
+        configuration->border_style = HIKARI_BORDER_STYLE_MWM;
+        configuration->corner_length = 20;
+      } else if (!strcmp(style, "fvwm")) {
+        configuration->border_style = HIKARI_BORDER_STYLE_FVWM;
+      } else if (!strcmp(style, "none")) {
+        configuration->border_style = HIKARI_BORDER_STYLE_NONE;
+      } else {
+        fprintf(stderr,
+            "configuration error: unknown border_style \"%s\""
+            " (expected \"mwm\" or \"fvwm\")\n",
+            style);
+        goto done;
+      }
+    } else if (!strcmp(key, "corner_length")) {
+      int64_t val;
+      if (!ucl_object_toint_safe(cur, &val)) {
+        fprintf(stderr,
+            "configuration error: expected integer for \"corner_length\"\n");
+        goto done;
+      }
+      if (val < 0) {
+        fprintf(stderr, "configuration error: corner_length must be >= 0\n");
+        goto done;
+      }
+      configuration->corner_length = (int)val;
     }
   }
 
@@ -1848,14 +1983,16 @@ hikari_configuration_init(struct hikari_configuration *configuration)
   hikari_color_convert(configuration->indicator_first, 0xB8E673);
   hikari_color_convert(configuration->indicator_conflict, 0xED6B32);
   hikari_color_convert(configuration->indicator_insert, 0xE3C3FA);
-  hikari_color_convert(configuration->border_active, 0xFFFFFF);
-  hikari_color_convert(configuration->border_inactive, 0x465457);
+  hikari_border_color_set_uniform(&configuration->border_active, 0xFFFFFF);
+  hikari_border_color_set_uniform(&configuration->border_inactive, 0x465457);
 
   hikari_font_init(&configuration->font, "monospace 10");
 
   configuration->border = 1;
   configuration->gap = 5;
   configuration->step = 100;
+  configuration->border_style = HIKARI_BORDER_STYLE_NONE;
+  configuration->corner_length = 20;
 
   for (int i = 0; i < HIKARI_NR_OF_EXECS; i++) {
     hikari_exec_init(&configuration->execs[i]);

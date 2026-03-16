@@ -6,6 +6,7 @@
 
 #include <wlr/types/wlr_cursor.h>
 
+#include <hikari/border_style.h>
 #include <hikari/color.h>
 #include <hikari/configuration.h>
 #include <hikari/geometry.h>
@@ -547,6 +548,12 @@ hikari_view_init(struct hikari_view *view,
 #endif
   view->flags = hikari_view_hidden_flag;
   view->border.state = HIKARI_BORDER_INACTIVE;
+  view->border.frame_texture = NULL;
+  view->border.frame_w = 0;
+  view->border.frame_h = 0;
+  view->border.frame_scale = 0;
+  view->border.frame_dirty = true;
+  view->border.frame_generated_state = HIKARI_BORDER_NONE;
   view->sheet = NULL;
   view->mark = NULL;
   view->surface = NULL;
@@ -581,6 +588,8 @@ hikari_view_fini(struct hikari_view *view)
 #if !defined(NDEBUG)
   printf("DESTROY VIEW %p\n", view);
 #endif
+
+  hikari_border_frame_fini(&view->border);
 
   hikari_free(view->title);
   hikari_free(view->id);

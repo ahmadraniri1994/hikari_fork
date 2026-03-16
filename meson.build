@@ -19,6 +19,7 @@ srcs = [
     'src/cursor.c',
     'src/decoration.c',
     'src/dnd_mode.c',
+    'src/color.c',
     'src/exec.c',
     'src/font.c',
     'src/geometry.c',
@@ -108,6 +109,7 @@ endif
 if get_option('virtualinput')
     add_project_arguments(['-DHAVE_VIRTUAL_INPUT=1'], language: 'c')
 endif
+srcs += ['src/border_style.c']
 
 meson.add_dist_script('tools/dist-tarball.sh')
 

@@ -24,6 +24,7 @@ OBJS = \
 	border.o \
 	command.o \
 	completion.o \
+	color.o \
 	configuration.o \
 	cursor.o \
 	decoration.o \
@@ -123,6 +124,8 @@ PERMS = 555
 .ifdef WITH_VIRTUAL_INPUT
 CFLAGS += -DHAVE_VIRTUAL_INPUT=1
 .endif
+
+OBJS += border_style.o
 
 CFLAGS += -Wall -I. -Iinclude -DHIKARI_ETC_PREFIX=${ETC_PREFIX}
 

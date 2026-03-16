@@ -11,9 +11,7 @@
 
 #include <hikari/compat.h>
 
-#ifdef HAVE_XWAYLAND
 #include <hikari/view.h>
-#endif
 
 static inline void
 render_image_to_surface(cairo_surface_t *output,
@@ -353,6 +351,15 @@ destroy_handler(struct wl_listener *listener, __unused void *data)
 }
 
 void
+hikari_output_regenerate_border_styles(struct hikari_output *output)
+{
+  struct hikari_view *view;
+  wl_list_for_each (view, &output->views, output_views) {
+    view->border.frame_dirty = true;
+  }
+}
+
+void
 hikari_output_init(struct hikari_output *output, struct wlr_output *wlr_output)
 {
   assert(!output->enabled);
@@ -363,6 +370,7 @@ hikari_output_init(struct hikari_output *output, struct wlr_output *wlr_output)
   wlr_damage_ring_init(&output->damage);
   output->background = NULL;
   output->enabled = false;
+
   output->workspace = hikari_malloc(sizeof(struct hikari_workspace));
 
 #ifdef HAVE_XWAYLAND
@@ -402,6 +410,8 @@ hikari_output_init(struct hikari_output *output, struct wlr_output *wlr_output)
                    &hikari_server.lock_mode)) {
       hikari_output_disable(output);
     }
+
+    hikari_output_regenerate_border_styles(output);
 
     struct hikari_output_config *output_config =
         hikari_configuration_resolve_output_config(

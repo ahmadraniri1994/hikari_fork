@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <wayland-util.h>
 
+#include <hikari/color.h>
 #include <hikari/exec.h>
 #include <hikari/font.h>
 #include <hikari/mark.h>
@@ -15,6 +16,22 @@ struct hikari_sheet;
 struct hikari_view;
 struct hikari_pointer_config;
 
+struct hikari_border_color {
+  float n[4];
+  float s[4];
+  float e[4];
+  float w[4];
+  float nw[4];
+  float ne[4];
+  float sw[4];
+  float se[4];
+  bool has_corners; /* true if any of nw/ne/sw/se were explicitly set */
+  bool has_nw, has_ne, has_sw, has_se;
+};
+
+void
+hikari_border_color_set_uniform(struct hikari_border_color *bc, uint32_t color);
+
 struct hikari_configuration {
   float clear[4];
   float foreground[4];
@@ -23,14 +40,21 @@ struct hikari_configuration {
   float indicator_first[4];
   float indicator_conflict[4];
   float indicator_insert[4];
-  float border_active[4];
-  float border_inactive[4];
+  struct hikari_border_color border_active;
+  struct hikari_border_color border_inactive;
 
   struct hikari_font font;
 
   int border;
   int gap;
   int step;
+  int corner_length;
+
+  enum {
+    HIKARI_BORDER_STYLE_NONE = -1,
+    HIKARI_BORDER_STYLE_MWM,
+    HIKARI_BORDER_STYLE_FVWM,
+  } border_style;
 
   struct hikari_exec execs[HIKARI_NR_OF_EXECS];
 

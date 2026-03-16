@@ -6,9 +6,14 @@
 #include <hikari/geometry.h>
 #include <hikari/output.h>
 #include <hikari/renderer.h>
+#include <hikari/server.h>
 #include <hikari/view.h>
 
 #include <hikari/compat.h>
+
+#include <hikari/border_style.h>
+#include <hikari/configuration.h>
+#include <hikari/server.h>
 
 #ifdef HAVE_XWAYLAND
 #include <hikari/xwayland_unmanaged_view.h>
@@ -56,6 +61,129 @@ buffer_damage_finish:
   pixman_region32_fini(&damage);
 }
 
+/*
+ * Blit a region of a wlr_texture to a destination box.
+ */
+static inline void
+frame_blit(struct wlr_texture *texture,
+    struct wlr_box *dst_box,
+    int src_x,
+    int src_y,
+    int src_w,
+    int src_h,
+    pixman_region32_t *clip,
+    struct hikari_renderer *renderer)
+{
+  struct wlr_render_texture_options opts = {
+    .texture = texture,
+    .src_box = {
+      .x = src_x,
+      .y = src_y,
+      .width = src_w,
+      .height = src_h,
+    },
+    .dst_box = *dst_box,
+    .clip = clip,
+    .filter_mode = WLR_SCALE_FILTER_NEAREST,
+  };
+  wlr_render_pass_add_texture(renderer->render_pass, &opts);
+}
+
+/*
+ * Render a per-view FVWM-style border frame.
+ *
+ * The frame texture is a full frame-sized image (frame_w x frame_h scaled)
+ * with the border ring rendered and the center transparent.  Each of the
+ * 8 border parts samples from its corresponding frame-relative position.
+ */
+static inline void
+render_border_fvwm_frame(struct hikari_border *border,
+    pixman_region32_t *clip,
+    struct hikari_renderer *renderer)
+{
+  struct wlr_texture *tex = border->frame_texture;
+  float scale = border->frame_scale;
+  int bx = border->geometry.x;
+  int by = border->geometry.y;
+
+  /*
+   * Each part's source region in the frame texture corresponds to its
+   * position relative to the frame origin (bx, by), scaled.
+   */
+
+  /* Top sidebar */
+  {
+    int sx = (int)((border->top.x - bx) * scale);
+    int sy = (int)((border->top.y - by) * scale);
+    int sw = (int)(border->top.width * scale);
+    int sh = (int)(border->top.height * scale);
+    frame_blit(tex, &border->top, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* Bottom sidebar */
+  {
+    int sx = (int)((border->bottom.x - bx) * scale);
+    int sy = (int)((border->bottom.y - by) * scale);
+    int sw = (int)(border->bottom.width * scale);
+    int sh = (int)(border->bottom.height * scale);
+    frame_blit(tex, &border->bottom, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* Left sidebar */
+  {
+    int sx = (int)((border->left.x - bx) * scale);
+    int sy = (int)((border->left.y - by) * scale);
+    int sw = (int)(border->left.width * scale);
+    int sh = (int)(border->left.height * scale);
+    frame_blit(tex, &border->left, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* Right sidebar */
+  {
+    int sx = (int)((border->right.x - bx) * scale);
+    int sy = (int)((border->right.y - by) * scale);
+    int sw = (int)(border->right.width * scale);
+    int sh = (int)(border->right.height * scale);
+    frame_blit(tex, &border->right, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* NW corner */
+  {
+    int sx = (int)((border->corner_nw.x - bx) * scale);
+    int sy = (int)((border->corner_nw.y - by) * scale);
+    int sw = (int)(border->corner_nw.width * scale);
+    int sh = (int)(border->corner_nw.height * scale);
+    frame_blit(tex, &border->corner_nw, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* NE corner */
+  {
+    int sx = (int)((border->corner_ne.x - bx) * scale);
+    int sy = (int)((border->corner_ne.y - by) * scale);
+    int sw = (int)(border->corner_ne.width * scale);
+    int sh = (int)(border->corner_ne.height * scale);
+    frame_blit(tex, &border->corner_ne, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* SW corner */
+  {
+    int sx = (int)((border->corner_sw.x - bx) * scale);
+    int sy = (int)((border->corner_sw.y - by) * scale);
+    int sw = (int)(border->corner_sw.width * scale);
+    int sh = (int)(border->corner_sw.height * scale);
+    frame_blit(tex, &border->corner_sw, sx, sy, sw, sh, clip, renderer);
+  }
+
+  /* SE corner */
+  {
+    int sx = (int)((border->corner_se.x - bx) * scale);
+    int sy = (int)((border->corner_se.y - by) * scale);
+    int sw = (int)(border->corner_se.width * scale);
+    int sh = (int)(border->corner_se.height * scale);
+    frame_blit(tex, &border->corner_se, sx, sy, sw, sh, clip, renderer);
+  }
+}
+
 static inline void
 render_border(struct hikari_border *border, struct hikari_renderer *renderer)
 {
@@ -80,24 +208,80 @@ render_border(struct hikari_border *border, struct hikari_renderer *renderer)
     goto buffer_damage_finish;
   }
 
-  float *color;
-  switch (border->state) {
-    case HIKARI_BORDER_INACTIVE:
-      color = hikari_configuration->border_inactive;
-      break;
+  if (hikari_configuration->border_style != HIKARI_BORDER_STYLE_NONE) {
+    /*
+     * Per-view frame rendering path (both FVWM and MWM styles).
+     *
+     * Lazily (re)generate the frame texture if the texture is missing,
+     * the output scale changed, or the border state changed.
+     */
+    struct hikari_output *output = renderer->wlr_output->data;
+    float scale = output->wlr_output->scale;
+    int border_style = hikari_configuration->border_style;
 
-    case HIKARI_BORDER_ACTIVE:
-      color = hikari_configuration->border_active;
-      break;
+    if (border->frame_texture == NULL || border->frame_scale != scale ||
+        border->frame_generated_state != border->state) {
+      struct hikari_border_color *colors;
+      switch (border->state) {
+        case HIKARI_BORDER_INACTIVE:
+          colors = &hikari_configuration->border_inactive;
+          break;
+        case HIKARI_BORDER_ACTIVE:
+          colors = &hikari_configuration->border_active;
+          break;
+        default:
+          goto buffer_damage_finish;
+      }
+      int bw = hikari_configuration->border;
+      int cl = border->corner_nw.width;
+      if (cl < bw)
+        cl = bw;
+      hikari_border_frame_generate(
+          border, hikari_server.renderer, colors, bw, cl, scale, border_style);
+    }
 
-    default:
-      goto buffer_damage_finish;
+    if (border->frame_texture != NULL) {
+      /* During interactive resize the texture dimensions may not
+       * match the current frame -- fall through to flat rendering. */
+      int exp_w = (int)(border->geometry.width * scale);
+      int exp_h = (int)(border->geometry.height * scale);
+      if (border->frame_w == exp_w && border->frame_h == exp_h) {
+        render_border_fvwm_frame(border, &damage, renderer);
+        goto flat_corners;
+      }
+    }
   }
 
-  rect_render(color, &border->top, renderer);
-  rect_render(color, &border->bottom, renderer);
-  rect_render(color, &border->left, renderer);
-  rect_render(color, &border->right, renderer);
+  {
+    struct hikari_border_color *colors;
+    switch (border->state) {
+      case HIKARI_BORDER_INACTIVE:
+        colors = &hikari_configuration->border_inactive;
+        break;
+
+      case HIKARI_BORDER_ACTIVE:
+        colors = &hikari_configuration->border_active;
+        break;
+
+      default:
+        goto buffer_damage_finish;
+    }
+
+    rect_render(colors->n, &border->top, renderer);
+    rect_render(colors->s, &border->bottom, renderer);
+    rect_render(colors->w, &border->left, renderer);
+    rect_render(colors->e, &border->right, renderer);
+
+    rect_render(colors->nw, &border->corner_nw, renderer);
+    rect_render(colors->ne, &border->corner_ne, renderer);
+    rect_render(colors->sw, &border->corner_sw, renderer);
+    rect_render(colors->se, &border->corner_se, renderer);
+
+    goto buffer_damage_finish;
+  }
+
+flat_corners:
+  /* Border style path already rendered corners via texture */
 
 buffer_damage_finish:
   pixman_region32_fini(&damage);
@@ -441,7 +625,8 @@ layer_for_each(struct wl_list *layers,
 #endif
 
 static void
-send_frame_done(struct wlr_surface *surface, __unused int sx, __unused int sy, void *data)
+send_frame_done(
+    struct wlr_surface *surface, __unused int sx, __unused int sy, void *data)
 {
   assert(surface != NULL);
 
@@ -479,7 +664,8 @@ frame_done(struct hikari_output *output)
 }
 
 void
-hikari_renderer_damage_frame_handler(struct wl_listener *listener, __unused void *data)
+hikari_renderer_damage_frame_handler(
+    struct wl_listener *listener, __unused void *data)
 {
   struct hikari_output *output =
       wl_container_of(listener, output, damage_frame);
