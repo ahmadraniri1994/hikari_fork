@@ -1,7 +1,7 @@
 #include <hikari/decoration.h>
 
-#include <hikari/memory.h>
 #include <hikari/compat.h>
+#include <hikari/memory.h>
 
 #include <wlr/types/wlr_xdg_shell.h>
 

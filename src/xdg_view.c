@@ -240,9 +240,15 @@ activate(struct hikari_view *view, bool active)
   struct hikari_xdg_view *xdg_view = (struct hikari_xdg_view *)view;
 
   if (xdg_view->surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    wlr_xdg_toplevel_set_activated(xdg_view->surface->toplevel, active);
+    fprintf(stderr,
+        "HIKARI xdg activate: initialized=%d active=%d\n",
+        xdg_view->surface->initialized,
+        active);
+    if (xdg_view->surface->initialized) {
+      wlr_xdg_toplevel_set_activated(xdg_view->surface->toplevel, active);
 
-    hikari_view_damage_whole(view);
+      hikari_view_damage_whole(view);
+    }
   }
 }
 
@@ -251,7 +257,8 @@ resize(struct hikari_view *view, int width, int height)
 {
   struct hikari_xdg_view *xdg_view = (struct hikari_xdg_view *)view;
 
-  if (xdg_view->surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
+  if (xdg_view->surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL &&
+      xdg_view->surface->initialized) {
     return wlr_xdg_toplevel_set_size(
         xdg_view->surface->toplevel, width, height);
   }
@@ -277,6 +284,12 @@ destroy_handler(struct wl_listener *listener, __unused void *data)
 
   if (hikari_view_is_mapped(view)) {
     unmap(view);
+  }
+
+  if (view->decoration.wlr_decoration != NULL) {
+    wl_list_remove(&view->decoration.mode.link);
+    wl_list_remove(&view->decoration.destroy.link);
+    view->decoration.wlr_decoration = NULL;
   }
 
   wl_list_remove(&xdg_view->map.link);
@@ -319,12 +332,31 @@ destroy_popup_handler(struct wl_listener *listener, __unused void *data)
   wl_list_remove(&popup->unmap.link);
   wl_list_remove(&popup->map.link);
   wl_list_remove(&popup->new_popup.link);
+  wl_list_remove(&popup->commit.link);
 
   hikari_free(popup);
 }
 
 static void
 xdg_popup_create(struct wlr_xdg_popup *wlr_popup, struct hikari_view *parent);
+
+static void
+popup_unconstrain(struct hikari_xdg_popup *popup);
+
+static void
+popup_commit_handler(struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_xdg_popup *popup = wl_container_of(listener, popup, commit);
+
+  if (!popup->popup->base->initialized) {
+    return;
+  }
+
+  popup_unconstrain(popup);
+
+  wl_list_remove(&popup->commit.link);
+  wl_list_init(&popup->commit.link);
+}
 
 static void
 new_popup_popup_handler(struct wl_listener *listener, __unused void *data)
@@ -428,7 +460,13 @@ xdg_popup_create(struct wlr_xdg_popup *wlr_popup, struct hikari_view *parent)
   hikari_view_child_init(
       (struct hikari_view_child *)popup, parent, wlr_popup->base->surface);
 
-  popup_unconstrain(popup);
+  if (wlr_popup->base->initialized) {
+    popup_unconstrain(popup);
+    wl_list_init(&popup->commit.link);
+  } else {
+    popup->commit.notify = popup_commit_handler;
+    wl_signal_add(&wlr_popup->base->surface->events.commit, &popup->commit);
+  }
 }
 
 static void
@@ -437,8 +475,10 @@ request_fullscreen_handler(struct wl_listener *listener, __unused void *data)
   struct hikari_xdg_view *xdg_view =
       wl_container_of(listener, xdg_view, request_fullscreen);
 
-  wlr_xdg_toplevel_set_fullscreen(xdg_view->surface->toplevel,
-      xdg_view->surface->toplevel->requested.fullscreen);
+  if (xdg_view->surface->initialized) {
+    wlr_xdg_toplevel_set_fullscreen(xdg_view->surface->toplevel,
+        xdg_view->surface->toplevel->requested.fullscreen);
+  }
 }
 
 static void

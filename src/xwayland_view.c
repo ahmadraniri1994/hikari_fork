@@ -388,7 +388,8 @@ constraints(struct hikari_view *view,
 }
 
 static void
-xwayland_view_associate_handler(struct wl_listener *listener, __unused void *data)
+xwayland_view_associate_handler(
+    struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, associate);
@@ -400,7 +401,8 @@ xwayland_view_associate_handler(struct wl_listener *listener, __unused void *dat
 }
 
 static void
-xwayland_view_dissociate_handler(struct wl_listener *listener, __unused void *data)
+xwayland_view_dissociate_handler(
+    struct wl_listener *listener, __unused void *data)
 {
   struct hikari_xwayland_view *xwayland_view =
       wl_container_of(listener, xwayland_view, dissociate);

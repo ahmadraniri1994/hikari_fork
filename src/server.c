@@ -1,5 +1,5 @@
-#include <hikari/server.h>
 #include <hikari/compat.h>
+#include <hikari/server.h>
 
 #include <errno.h>
 #include <libinput.h>
@@ -14,6 +14,7 @@
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_data_control_v1.h>
 #include <wlr/types/wlr_data_device.h>
+#include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -83,7 +84,8 @@ add_pointer(struct hikari_server *server, struct wlr_input_device *device)
 }
 
 static void
-add_keyboard(__unused struct hikari_server *server, struct wlr_input_device *device)
+add_keyboard(
+    __unused struct hikari_server *server, struct wlr_input_device *device)
 {
   struct hikari_keyboard *keyboard =
       hikari_malloc(sizeof(struct hikari_keyboard));
@@ -102,7 +104,8 @@ add_keyboard(__unused struct hikari_server *server, struct wlr_input_device *dev
 }
 
 static void
-add_switch(__unused struct hikari_server *server, struct wlr_input_device *device)
+add_switch(
+    __unused struct hikari_server *server, struct wlr_input_device *device)
 {
   struct hikari_switch *swtch = hikari_malloc(sizeof(struct hikari_switch));
 
@@ -507,7 +510,8 @@ setup_cursor(struct hikari_server *server)
 }
 
 static void
-server_decoration_mode_handler(struct wl_listener *listener, __unused void *data)
+server_decoration_mode_handler(
+    struct wl_listener *listener, __unused void *data)
 {
   struct hikari_view_decoration *decoration =
       wl_container_of(listener, decoration, mode);
@@ -523,28 +527,49 @@ server_decoration_mode_handler(struct wl_listener *listener, __unused void *data
 }
 
 static void
+server_decoration_destroy_handler(
+    struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_view_decoration *decoration =
+      wl_container_of(listener, decoration, destroy);
+
+  wl_list_remove(&decoration->mode.link);
+  wl_list_remove(&decoration->destroy.link);
+
+  decoration->wlr_decoration = NULL;
+}
+
+static void
 server_decoration_handler(__unused struct wl_listener *listener, void *data)
 {
   struct wlr_server_decoration *wlr_decoration = data;
-  struct hikari_view *view =
-      wl_container_of(wlr_decoration->surface, view, surface);
   struct wlr_xdg_surface *xdg_surface =
       wlr_xdg_surface_try_from_wlr_surface(wlr_decoration->surface);
+
+  if (xdg_surface == NULL) {
+    return;
+  }
+
   struct hikari_xdg_view *xdg_view = xdg_surface->data;
 
   if (xdg_view == NULL) {
     return;
   }
 
-  wl_signal_add(&wlr_decoration->events.mode, &xdg_view->view.decoration.mode);
-  xdg_view->view.decoration.mode.notify = server_decoration_mode_handler;
-
   xdg_view->view.decoration.wlr_decoration = wlr_decoration;
   xdg_view->view.decoration.view = &xdg_view->view;
+
+  xdg_view->view.decoration.mode.notify = server_decoration_mode_handler;
+  wl_signal_add(&wlr_decoration->events.mode, &xdg_view->view.decoration.mode);
+
+  xdg_view->view.decoration.destroy.notify = server_decoration_destroy_handler;
+  wl_signal_add(
+      &wlr_decoration->events.destroy, &xdg_view->view.decoration.destroy);
 }
 
 static void
-new_toplevel_decoration_handler(__unused struct wl_listener *listener, void *data)
+new_toplevel_decoration_handler(
+    __unused struct wl_listener *listener, void *data)
 {
   struct wlr_xdg_toplevel_decoration_v1 *wlr_decoration = data;
 
@@ -662,7 +687,8 @@ setup_xdg_shell(struct hikari_server *server)
 
 #ifdef HAVE_LAYERSHELL
 static void
-new_layer_shell_surface_handler(__unused struct wl_listener *listener, void *data)
+new_layer_shell_surface_handler(
+    __unused struct wl_listener *listener, void *data)
 {
   struct wlr_layer_surface_v1 *wlr_layer_surface =
       (struct wlr_layer_surface_v1 *)data;
@@ -789,8 +815,7 @@ output_layout_change_handler(struct wl_listener *listener, __unused void *data)
 
     if (output_config != NULL) {
       if (hikari_output_config_has_color(output_config)) {
-        hikari_output_load_background_color(
-            output, output_config->color.value);
+        hikari_output_load_background_color(output, output_config->color.value);
       } else {
         hikari_output_load_background(output,
             output_config->background.value,
@@ -964,6 +989,9 @@ server_init(struct hikari_server *server, char *config_path)
 
   server->output_management = NULL;
   setup_output_manager(server);
+
+  server->foreign_toplevel_manager =
+      wlr_foreign_toplevel_manager_v1_create(server->display);
 
   server->output_layout_change.notify = output_layout_change_handler;
   wl_signal_add(

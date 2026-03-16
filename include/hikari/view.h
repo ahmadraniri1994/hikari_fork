@@ -15,6 +15,8 @@
 #include <hikari/node.h>
 #include <hikari/operation.h>
 #include <hikari/output.h>
+#include <wlr/types/wlr_foreign_toplevel_management_v1.h>
+
 #include <hikari/server.h>
 #include <hikari/sheet.h>
 #include <hikari/tile.h>
@@ -29,6 +31,7 @@ struct hikari_view_decoration {
   struct wlr_server_decoration *wlr_decoration;
   struct hikari_view *view;
   struct wl_listener mode;
+  struct wl_listener destroy;
 };
 
 struct hikari_view {
@@ -76,6 +79,13 @@ struct hikari_view {
   void (*constraints)(struct hikari_view *, int *, int *, int *, int *);
 
   struct wl_listener new_subsurface;
+
+  struct wlr_foreign_toplevel_handle_v1 *foreign_toplevel;
+  struct wl_listener foreign_toplevel_request_activate;
+  struct wl_listener foreign_toplevel_request_close;
+  struct wl_listener foreign_toplevel_request_maximize;
+  struct wl_listener foreign_toplevel_request_fullscreen;
+  struct wl_listener foreign_toplevel_request_minimize;
 };
 
 struct hikari_view_child {

@@ -4,6 +4,7 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
+#include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_output_management_v1.h>
 
 #ifdef HAVE_VIRTUAL_INPUT
@@ -58,6 +59,7 @@ struct hikari_server {
   struct wlr_allocator *allocator;
   struct wlr_xdg_output_manager_v1 *output_manager;
   struct wlr_output_manager_v1 *output_management;
+  struct wlr_foreign_toplevel_manager_v1 *foreign_toplevel_manager;
   struct wlr_data_device_manager *data_device_manager;
 
   struct wlr_backend *noop_backend;

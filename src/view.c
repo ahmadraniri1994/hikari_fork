@@ -409,9 +409,138 @@ clear_focus(struct hikari_view *view)
   }
 }
 
+static void
+foreign_toplevel_request_activate_handler(
+    struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_view *view =
+      wl_container_of(listener, view, foreign_toplevel_request_activate);
+
+  if (!hikari_view_is_hidden(view) && hikari_server_in_normal_mode()) {
+    hikari_workspace_focus_view(view->sheet->workspace, view);
+  }
+}
+
+static void
+foreign_toplevel_request_close_handler(
+    struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_view *view =
+      wl_container_of(listener, view, foreign_toplevel_request_close);
+
+  hikari_view_quit(view);
+}
+
+static void
+foreign_toplevel_request_maximize_handler(
+    struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_view *view =
+      wl_container_of(listener, view, foreign_toplevel_request_maximize);
+
+  if (!hikari_view_is_hidden(view)) {
+    hikari_view_toggle_full_maximize(view);
+  }
+}
+
+static void
+foreign_toplevel_request_fullscreen_handler(
+    struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_view *view =
+      wl_container_of(listener, view, foreign_toplevel_request_fullscreen);
+
+  if (!hikari_view_is_hidden(view)) {
+    hikari_view_toggle_full_maximize(view);
+  }
+}
+
+static void
+foreign_toplevel_request_minimize_handler(
+    struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_view *view =
+      wl_container_of(listener, view, foreign_toplevel_request_minimize);
+
+  if (!hikari_view_is_hidden(view)) {
+    hikari_view_hide(view);
+  }
+}
+
+static void
+foreign_toplevel_create(struct hikari_view *view)
+{
+  struct wlr_foreign_toplevel_manager_v1 *manager =
+      hikari_server.foreign_toplevel_manager;
+
+  if (manager == NULL) {
+    return;
+  }
+
+  struct wlr_foreign_toplevel_handle_v1 *handle =
+      wlr_foreign_toplevel_handle_v1_create(manager);
+
+  view->foreign_toplevel = handle;
+
+  if (view->title != NULL) {
+    wlr_foreign_toplevel_handle_v1_set_title(handle, view->title);
+  }
+  if (view->id != NULL) {
+    wlr_foreign_toplevel_handle_v1_set_app_id(handle, view->id);
+  }
+
+  if (view->output != NULL) {
+    wlr_foreign_toplevel_handle_v1_output_enter(
+        handle, view->output->wlr_output);
+  }
+
+  view->foreign_toplevel_request_activate.notify =
+      foreign_toplevel_request_activate_handler;
+  wl_signal_add(&handle->events.request_activate,
+      &view->foreign_toplevel_request_activate);
+
+  view->foreign_toplevel_request_close.notify =
+      foreign_toplevel_request_close_handler;
+  wl_signal_add(
+      &handle->events.request_close, &view->foreign_toplevel_request_close);
+
+  view->foreign_toplevel_request_maximize.notify =
+      foreign_toplevel_request_maximize_handler;
+  wl_signal_add(&handle->events.request_maximize,
+      &view->foreign_toplevel_request_maximize);
+
+  view->foreign_toplevel_request_fullscreen.notify =
+      foreign_toplevel_request_fullscreen_handler;
+  wl_signal_add(&handle->events.request_fullscreen,
+      &view->foreign_toplevel_request_fullscreen);
+
+  view->foreign_toplevel_request_minimize.notify =
+      foreign_toplevel_request_minimize_handler;
+  wl_signal_add(&handle->events.request_minimize,
+      &view->foreign_toplevel_request_minimize);
+}
+
+static void
+foreign_toplevel_destroy(struct hikari_view *view)
+{
+  if (view->foreign_toplevel == NULL) {
+    return;
+  }
+
+  wl_list_remove(&view->foreign_toplevel_request_activate.link);
+  wl_list_remove(&view->foreign_toplevel_request_close.link);
+  wl_list_remove(&view->foreign_toplevel_request_maximize.link);
+  wl_list_remove(&view->foreign_toplevel_request_fullscreen.link);
+  wl_list_remove(&view->foreign_toplevel_request_minimize.link);
+
+  wlr_foreign_toplevel_handle_v1_destroy(view->foreign_toplevel);
+  view->foreign_toplevel = NULL;
+}
+
 void
-hikari_view_init(
-    struct hikari_view *view, bool child, __unused struct hikari_workspace *workspace)
+hikari_view_init(struct hikari_view *view,
+    bool child,
+    __unused struct hikari_workspace *workspace)
 {
 #if !defined(NDEBUG)
   printf("VIEW INIT %p\n", view);
@@ -431,6 +560,8 @@ hikari_view_init(
   view->child = child;
   view->current_geometry = &view->geometry;
   view->current_unmaximized_geometry = &view->geometry;
+  view->foreign_toplevel = NULL;
+  view->decoration.wlr_decoration = NULL;
 
   hikari_view_unset_dirty(view);
   view->pending_operation.tile = NULL;
@@ -493,6 +624,10 @@ hikari_view_set_title(struct hikari_view *view, const char *title)
       struct hikari_output *output = view->output;
       hikari_indicator_update_title(&hikari_server.indicator, output, title);
     }
+
+    if (view->foreign_toplevel != NULL) {
+      wlr_foreign_toplevel_handle_v1_set_title(view->foreign_toplevel, title);
+    }
   } else {
     view->title = NULL;
   }
@@ -507,6 +642,10 @@ set_app_id(struct hikari_view *view, const char *id)
   view->id = hikari_malloc(strlen(id) + 1);
 
   strcpy(view->id, id);
+
+  if (view->foreign_toplevel != NULL) {
+    wlr_foreign_toplevel_handle_v1_set_app_id(view->foreign_toplevel, id);
+  }
 }
 
 struct hikari_damage_data {
@@ -866,6 +1005,8 @@ hikari_view_map(struct hikari_view *view, struct wlr_surface *surface)
     increase_group_visiblity(view);
     raise_view(view);
   }
+
+  foreign_toplevel_create(view);
 }
 
 void
@@ -873,6 +1014,8 @@ hikari_view_unmap(struct hikari_view *view)
 {
   assert(!hikari_view_is_unmanaged(view));
   assert(hikari_view_is_mapped(view));
+
+  foreign_toplevel_destroy(view);
 
   wl_list_remove(&view->new_subsurface.link);
 
@@ -1129,6 +1272,10 @@ commit_full_maximize(
     view->border.state = HIKARI_BORDER_NONE;
   }
 
+  if (view->foreign_toplevel != NULL) {
+    wlr_foreign_toplevel_handle_v1_set_maximized(view->foreign_toplevel, true);
+  }
+
   commit_pending_operation(view, operation);
 }
 
@@ -1158,6 +1305,10 @@ commit_unmaximize(struct hikari_view *view, struct hikari_operation *operation)
 
   if (!view->use_csd) {
     view->border.state = HIKARI_BORDER_ACTIVE;
+  }
+
+  if (view->foreign_toplevel != NULL) {
+    wlr_foreign_toplevel_handle_v1_set_maximized(view->foreign_toplevel, false);
   }
 
   commit_pending_operation(view, operation);
@@ -1810,6 +1961,11 @@ hikari_view_activate(struct hikari_view *view, bool active)
     }
     view->activate(view, active);
   }
+
+  if (view->foreign_toplevel != NULL) {
+    wlr_foreign_toplevel_handle_v1_set_activated(
+        view->foreign_toplevel, active);
+  }
 }
 
 static void
@@ -1817,8 +1973,19 @@ migrate_view(struct hikari_view *view, struct hikari_sheet *sheet, bool center)
 {
   assert(hikari_view_is_hidden(view));
 
+  struct hikari_output *old_output = view->output;
+
   view->output = sheet->workspace->output;
   view->sheet = sheet;
+
+  if (view->foreign_toplevel != NULL && old_output != view->output) {
+    if (old_output != NULL) {
+      wlr_foreign_toplevel_handle_v1_output_leave(
+          view->foreign_toplevel, old_output->wlr_output);
+    }
+    wlr_foreign_toplevel_handle_v1_output_enter(
+        view->foreign_toplevel, view->output->wlr_output);
+  }
 
   move_to_top(view);
 
