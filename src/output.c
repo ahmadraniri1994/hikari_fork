@@ -167,6 +167,16 @@ hikari_output_damage_whole(struct hikari_output *output)
   wlr_output_schedule_frame(output->wlr_output);
 }
 
+static void
+needs_frame_handler(struct wl_listener *listener, __unused void *data)
+{
+  struct hikari_output *output = wl_container_of(listener, output, needs_frame);
+
+  if (output->enabled) {
+    wlr_output_schedule_frame(output->wlr_output);
+  }
+}
+
 void
 hikari_output_disable(struct hikari_output *output)
 {
@@ -178,6 +188,9 @@ hikari_output_disable(struct hikari_output *output)
 
   wl_list_remove(&output->damage_frame.link);
   wl_list_init(&output->damage_frame.link);
+
+  wl_list_remove(&output->needs_frame.link);
+  wl_list_init(&output->needs_frame.link);
 
   struct wlr_output_state state;
   wlr_output_state_init(&state);
@@ -202,6 +215,10 @@ hikari_output_enable(struct hikari_output *output)
   wl_list_remove(&output->damage_frame.link);
   output->damage_frame.notify = hikari_renderer_damage_frame_handler;
   wl_signal_add(&wlr_output->events.frame, &output->damage_frame);
+
+  wl_list_remove(&output->needs_frame.link);
+  output->needs_frame.notify = needs_frame_handler;
+  wl_signal_add(&wlr_output->events.needs_frame, &output->needs_frame);
 
   struct wlr_output_state state;
   wlr_output_state_init(&state);
@@ -259,11 +276,20 @@ hikari_output_set_enabled(struct hikari_output *output, bool enabled)
     wl_list_remove(&output->damage_frame.link);
     output->damage_frame.notify = hikari_renderer_damage_frame_handler;
     wl_signal_add(&wlr_output->events.frame, &output->damage_frame);
+
+    wl_list_remove(&output->needs_frame.link);
+    output->needs_frame.notify = needs_frame_handler;
+    wl_signal_add(&wlr_output->events.needs_frame, &output->needs_frame);
+
     output->enabled = true;
     hikari_output_damage_whole(output);
   } else if (!enabled && output->enabled) {
     wl_list_remove(&output->damage_frame.link);
     wl_list_init(&output->damage_frame.link);
+
+    wl_list_remove(&output->needs_frame.link);
+    wl_list_init(&output->needs_frame.link);
+
     output->enabled = false;
   }
 }
@@ -368,6 +394,7 @@ hikari_output_init(struct hikari_output *output, struct wlr_output *wlr_output)
     wl_list_insert(&hikari_server.outputs, &output->server_outputs);
 
     wl_list_init(&output->damage_frame.link);
+    wl_list_init(&output->needs_frame.link);
 
     if (!hikari_server_in_lock_mode()) {
       hikari_output_enable(output);
