@@ -1,0 +1,47 @@
+From: GitHub Copilot <copilot@github.com>
+Date: Sun, 13 Sep 2026 00:00:00 +0000
+Subject: [PATCH] fix: GTK Wayland window visibility - send frame callbacks on mapped views
+
+This patch fixes an issue where GTK applications (and other Wayland clients)
+would launch but fail to display their windows when using pure Wayland with
+Hikari compositor.
+
+The root cause: The renderer's damage frame handler was returning early without
+rendering or committing output state when there was no visual damage. This meant
+that GTK applications, which wait for frame callbacks before rendering, would
+never receive those callbacks and thus never display their windows.
+
+The fix ensures that even when there's no damage, if there are mapped views on
+the output, we still commit the output state and send frame callbacks to all
+clients. This allows Wayland applications to properly synchronize their
+rendering with the compositor.
+
+Fixes: https://codeberg.org/thomasadam/hikari/issues/10
+
+---
+ src/renderer.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/renderer.c b/src/renderer.c
+index 71a2793..xxxx 100644
+--- a/src/renderer.c
++++ b/src/renderer.c
+@@ -673,10 +673,17 @@ hikari_renderer_damage_frame_handler(
+ 
+   struct wlr_output *wlr_output = output->wlr_output;
+   bool has_damage = pixman_region32_not_empty(&output->damage.current);
++  
++  /* Check if there are any views on this output that need frame callbacks.
++   * Even without visual damage, we must commit frames for mapped views to
++   * ensure they receive the frame callbacks they're waiting for. This is
++   * critical for Wayland clients like GTK that synchronize rendering with
++   * the compositor's frame cycle. */
++  bool has_views = !wl_list_empty(&output->views);
+ 
+-  if (!wlr_output->needs_frame && !has_damage) {
++  if (!wlr_output->needs_frame && !has_damage && !has_views) {
+     frame_done(output);
+     return;
+   }
+ 
+   pixman_region32_t buffer_damage;
